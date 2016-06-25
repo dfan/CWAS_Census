@@ -1,6 +1,6 @@
 library(shiny)
 library(RMySQL)
-library(choroplethrMaps)
+library(choroplethr)
 library(ggplot2)
 
 con <- dbConnect(MySQL(), user = "root", password = "root", dbname = "census2010", unix.sock="/Applications/MAMP/tmp/mysql/mysql.sock")
@@ -29,7 +29,7 @@ shinyServer(function(input, output) {
     if (input$variable == 'Median Income') {
       string = 'medianincome'
     }
-    df <- as.data.frame(cbind(data$county, data$noquote(string)))
+    df <- as.data.frame(cbind(data$county, data[, string]))
     names(df) <- c("region", "value")
     # remove leading zeros from FIP codes
     # choropleth requires numeric column type in dataframe
