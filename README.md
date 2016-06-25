@@ -5,9 +5,6 @@ Raw files were downloaded from the [2010 Census](https://www.census.gov/support/
 `censusPlot.R` demonstrates how choropleth plots may be generated. The code in `censusPlot.R` was copied over to the server-side script in the Shiny App. To run the Shiny App, click "Run App" after opening `/ShinyApp/server.R` in RStudio. Below are plots of the USA colored by median income, black population, white population and total population by county.
 
 ![](medianIncome.png)
-
 ![](blackFrac.png)
-
 ![](whiteFrac.png)
-
 ![](population.png)
