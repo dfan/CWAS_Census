@@ -12,8 +12,11 @@ Below are plots of the USA colored by median income, black population, white pop
 
 ![](Sample Images/Screenshot1.png)
 
+
 ![](Sample Images/Screenshot2.png)
 
+
 ![](Sample Images/Screenshot3.png)
+
 
 ![](Sample Images/Screenshot4.png)
