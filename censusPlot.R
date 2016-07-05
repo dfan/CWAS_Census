@@ -8,6 +8,8 @@ dbDisconnect(con)
 
 # data frame must have one column called "region" and another called "value"
 df <- as.data.frame(cbind(data$county, data$medianincome))
+# remove leading zeros from FIP codes
+# choropleth requires numeric column type in dataframe
 names(df) <- c("region", "value")
 # remove leading zeros from FIP codes. Choropleth requires numeric column type in dataframe
 df$region <- as.numeric(sapply(df$region, function(y) sub('^0+([1-9])', '\\1', y)))

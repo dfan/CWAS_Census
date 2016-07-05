@@ -1,23 +1,129 @@
 library(shiny)
-
 # Define UI for miles per gallon application
-shinyUI(pageWithSidebar(
+shinyUI(fluidPage( #pageWithSidebar
   
   # Application title
-  headerPanel("US Census 2010"),
+  #headerPanel("US Census 2000/2010"),
+  
+  tags$head(
+    tags$style("#map1{height:95vh !important;}"),
+    tags$style("#map2{height:95vh !important;}"),
+    tags$style(HTML("
+                    div.container {
+        width: 100%;
+                    }
+                    
+                    ")),
+    tags$script(
+      HTML("
+        $(document).ready(function(){
+          // Mark columns we want to toggle
+          $('body').find('div [class=col-sm-3]').addClass('sidebarPanel');
+          $('body').find('div [class=col-sm-6]').addClass('sidebarPanel');
+          // fluidRow belongs to the well class
+          $('body').find('div [class=well]').addClass('sidebarPanel');
+          $('body').find('div [class=col-sm-12]').addClass('mainPanel');
+        })
+       
+        Shiny.addCustomMessageHandler ('resize',function (message) {
+        $('.sidebarPanel').toggle();
+        // $('.mainPanel').toggleClass('col-sm-12');
+        $(window).trigger('resize')
+        });
+     ")
+    )
+  ),
+  
+  actionButton("showpanel", "Show/hide sidebar"),
   
   # Sidebar with controls to select the variable to plot against mpg
   # and to specify whether outliers should be included
-  sidebarPanel(
-    selectInput("variable", "Color Map By:",
-                list("Median Income" = "Median Income", 
-                     "Black Population %" = "Black Population %",
-                     "White Population %" = "White Population %",
-                     "County Population" = "County Population"))
-    ),
   
-  mainPanel(
-    h3(textOutput("caption")),
-    plotOutput("map")
+  sidebarLayout(
+    sidebarPanel(width = 12,
+      fluidRow(
+        column(width = 3,
+          selectInput("variable1", "Select Year(s):",
+                      list("None" = "",
+                           "2000" = "2000", 
+                           "2010" = "2010",
+                           "Both 2000 and 2010" = "Both 2000 and 2010")), 
+          actionButton("action", "Go!")
+        ),
+        
+        column(width = 3,
+          selectInput("variable2", "Color Map By:",
+                     list("None" = "",
+                          "Median Income" = "Median Income", 
+                          "Black Population %" = "Black Population %",
+                          "White Population %" = "White Population %",
+                          "County Population" = "County Population",
+                          "% Below Poverty" = "% Below Poverty",
+                          "Blue Vote %" = "Blue Vote %",
+                          "Red Vote %" = "Red Vote %"))
+        ),
+      
+        column(width = 6,
+            column(width = 5,
+              fileInput('file1', 'Choose CSV File', accept=c('text/csv', 'text/comma-separated-values,text/plain', '.csv')), 
+              fileInput('file2', NULL, accept=c('text/csv', 'text/comma-separated-values,text/plain', '.csv'))
+            ),
+            column(width = 7,
+            fluidRow(
+              column(width = 12, offset = 1, checkboxInput('header', 'Include Header', TRUE))
+            ),
+            column(width = 5,
+            radioButtons('sep', 'Separator',
+                         c(Comma=',',
+                           Semicolon=';',
+                           Tab='\t'), 
+                         ',')
+            ),
+            column(width = 7,
+                   radioButtons('quote', 'Quote',
+                                c(None='',
+                                  'Double Quote'='"',
+                                  'Single Quote'="'"),
+                                '"')
+            ))
+          )
+      )),
+    mainPanel(width = 12,
+              tabsetPanel(
+                tabPanel("Plot(s)", 
+                  fluidRow(
+                    column(12, align = "center", br(),
+                           plotOutput("map1", width = "100%"))
+                  ),
+                  br(),
+                  fluidRow(
+                    column(12, align = "center",
+                           plotOutput("map2", width = "100%"))
+                  )
+                ),
+                tabPanel("Table",
+                         radioButtons('useData', NULL, choices = c('Sort table by census data', 'Sort table by user data'), selected = NULL),
+                         uiOutput("tableList"),
+                  fluidRow(
+                     br(),
+                     column(12, align = "center",
+                         dataTableOutput("table")
+                     )
+                  )
+                ),
+                tabPanel("ICD9s", 
+                         radioButtons('icd9', NULL, choices = c('None selected', 'See ICD9 rates for table 1', 'See ICD9 rates for table 2')),
+                         uiOutput("icd9List"),
+                         actionButton("displayTable", "Go!"),
+                  fluidRow(
+                    br(),
+                    column(12, align = "center",
+                          dataTableOutput('icd9table')
+                    )
+                  )
+                )
+            )
+    )
   )
 ))
+
