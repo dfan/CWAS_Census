@@ -5,12 +5,12 @@ Raw files were downloaded from the [2000 and 2010 Census](https://www.census.gov
 `censusPlot.R` demonstrates how choropleth plots may be generated. The code in `censusPlot.R` was copied over to the server-side script in the Shiny App. To run the Shiny App, click "Run App" after opening `/ShinyApp/server.R` in RStudio.
 
 App functionality:
-⋅⋅* Plots choropleth maps of USA by parameter of user's choice using census data
-⋅⋅* Displays year-by-year comparison for a single variable against all counties, with either census data or data of user's choice
-⋅⋅* Displays ICD9 rates for user uploaded table
+*  Plots choropleth maps of USA by parameter of user's choice using census data
+*  Displays year-by-year comparison for a single variable against all counties, with either census data or data of user's choice
+*  Displays ICD9 rates for user uploaded table
 Below are plots of the USA colored by median income, black population, white population and total population by county.
 
-![](medianIncome.png)
-![](blackFrac.png)
-![](whiteFrac.png)
-![](population.png)
+![](Sample Images/medianIncome.png)
+![](Sample Images/blackFrac.png)
+![](Sample Images/whiteFrac.png)
+![](Sample Images/population.png)
