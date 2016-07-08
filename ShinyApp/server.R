@@ -38,7 +38,7 @@ shinyServer(function(input, output, session) {
   })
   
   # for choropleth maps
-  getPlotString <- reactive( {
+  getPlotString <- reactive({
     string <- c('')
     if (input$variable2 == 'County Population') {
       string = 'population'
@@ -126,27 +126,27 @@ shinyServer(function(input, output, session) {
   # for second panel
   output$table <- renderDataTable({
     string <- getTableString()
-    if (input$useData == 'Sort table by census data' & string != '') {
+    data <- c('')
+    if (input$useData == 'Sort table by census data' & input$stat != 'None' & getTableString() != '') {
       data <- as.data.frame(cbind(data2000$county, data2000[, string], data2010[, string]))
       names(data) <- c('County', paste(input$sortBy, '(2000)'), paste(input$sortBy, '(2010)'))
-      # ensure data is in numeric format so division happens correctly below
-      data[, paste(input$sortBy, '(2000)')] <- as.numeric(data[, paste(input$sortBy, '(2000)')])
-      data[, paste(input$sortBy, '(2010)')] <- as.numeric(data[, paste(input$sortBy, '(2010)')])
+      # ensure data is in numeric format so division happens correctly below. as.character prevents numeric from removing decimals
+      data[, paste(input$sortBy, '(2000)')] <- as.numeric(as.character(data[, paste(input$sortBy, '(2000)')]))
+      data[, paste(input$sortBy, '(2010)')] <- as.numeric(as.character(data[, paste(input$sortBy, '(2010)')]))
       # If data didn't exist in 2000 but did in 2010, then set % change to 0. We don't want Inf values
-      data$Difference <- apply(data, 1, function(y) { if (as.numeric(y[2]) == 0 | as.numeric(y[3]) == 0 | as.numeric(y[2]) == 0.0000 | as.numeric(y[3] == 0.0000)) 0.0
-        else abs(as.numeric(y[3]) - as.numeric(y[2])) / as.numeric(y[2])})
-      data[order(data$Difference, decreasing = TRUE), ] 
+      data <- addStatCol(input$stat, data, data2000$population, data2010$population)
     } else if (input$useData == 'Sort table by user data' & !is.null(input$file1) & !is.null(input$file2)) {
       table1 <- readTable1()
       table2 <- readTable2()
       # avoid error message when "None" is selected but files are uploaded
       if (input$sortBy != 'None') {
         data <- as.data.frame(cbind(table1[, 1], table1[, input$sortBy], table2[, input$sortBy]))
+        names(data) <- c('County', 'Year1', 'Year2')
+        # ensure data is in numeric format so division happens correctly below. as.character prevents numeric from removing decimals
+        data[, 'Year1'] <- as.numeric(as.character(data[, 'Year1']))
+        data[, 'Year2'] <- as.numeric(as.character(data[, 'Year2']))
         # If data didn't exist in 2000 but did in 2010, then set % change to 0. We don't want Inf values
-        data$Difference <- apply(data, 1, function(y) { if (as.numeric(y[2]) == 0 | as.numeric(y[3]) == 0 | as.numeric(y[2]) == 0.0000 | as.numeric(y[3] == 0.0000)) 0.0
-          else abs(as.numeric(y[3]) - as.numeric(y[2])) / as.numeric(y[2])})
-        names(data) <- c('County', 'Year1', 'Year2', 'Difference %')
-        data[order(data$Difference, decreasing = TRUE), ]
+        data <- addStatCol(input$stat, data, data2000$population, data2010$population)
       }
     } else {
       return(NULL)
@@ -177,8 +177,9 @@ shinyServer(function(input, output, session) {
   
   output$tableList <- renderUI({
     switch(input$useData,
+           'None' = selectInput("sortBy", "Sort By:", list("")),
            'Sort table by census data' = selectInput("sortBy", "Sort By:",
-                                                     list("None" = "",
+                                                     list("None" = "None",
                                                           "Median Income" = "Median Income", 
                                                           "Black Population %" = "Black Population %",
                                                           "White Population %" = "White Population %",
