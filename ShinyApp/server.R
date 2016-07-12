@@ -30,11 +30,21 @@ shinyServer(function(input, output, session) {
   })
   
   formulaText <- reactive({
-    paste("USA Colored by", input$variable2, "in", input$variable1)
+    if (input$variable1 != 'Difference Between')
+      paste("USA Colored by", input$variable2, "in", input$variable1)
+    paste("USA Colored by", input$variable1, input$variable2, "in 2000 and 2010")
   })
   
   output$caption <- renderText({
    formulaText()
+  })
+  
+  output$mapType <- reactive({
+    return (input$variable1)
+  })
+  
+  getMapType <- reactive({
+    return (input$variable1)
   })
   
   # for choropleth maps
@@ -95,32 +105,43 @@ shinyServer(function(input, output, session) {
     string
   })
   
+  # for toggling map display (don't let previous map linger when switching)
   # isolate -> dependency on go button
   # map 1
   plotObject1 <- eventReactive(input$action, {
-    if (input$variable1 == '2000') {
-      plotMap(getPlotString(), data2000, formulaText())
-    } else if (input$variable1 == '2010') {
-      plotMap(getPlotString(), data2010, formulaText())
-    } else if (input$variable1 == 'Both 2000 and 2010') {
-      plotMap(getPlotString(), data2000, paste("USA Colored by", input$variable2, 'in 2000'))
-    }
+    plotMap(getPlotString(), data2000, paste("USA Colored by", input$variable2, 'in 2000'))
   })
   
   # map 2 if both are selected
   plotObject2 <- eventReactive(input$action, {
-    if (input$variable1 == 'Both 2000 and 2010') {
+    plotMap(getPlotString(), data2010, paste("USA Colored by", input$variable2, 'in 2010'))
+  })
+  
+  # unfortunately had to declare a third because in UI the double column won't resolve two maps called map1
+  plotObject3 <- eventReactive(input$action, {
+    if (input$variable1 == '2000') {
+      plotMap(getPlotString(), data2000, paste("USA Colored by", input$variable2, 'in 2000'))
+    } else if (input$variable1 == '2010') {
       plotMap(getPlotString(), data2010, paste("USA Colored by", input$variable2, 'in 2010'))
+    } else if (input$variable1 == 'Difference Between') {
+      plotDiffMap(getPlotString(), data2000, data2010, formulaText())
     }
   })
   
-  # called separately because isolate doesn't work otherwise
-  output$map1 <- renderPlot({
-    plotObject1()
-  })
+  # Reactive scope reference: https://shinydata.wordpress.com/2015/02/02/a-few-things-i-learned-about-shiny-and-reactive-programming/
+  output$maps <- renderUI({
+    # isolate mapType value update so that reactive dependencies don't override the isolated go button
+    input$action
+    isolate(mapType <- getMapType())
   
-  output$map2 <- renderPlot({
-    plotObject2()
+    if (mapType == 'Both 2000 and 2010') {
+      column(12,
+        column(6, align = "center", renderPlot({ plotObject1() })),
+        column(6, align = "center", renderPlot({ plotObject2() }))
+      )
+    } else {
+      column(12, br(), renderPlot({ plotObject3() }))
+    }
   })
   
   # for second panel

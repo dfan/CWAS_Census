@@ -6,8 +6,7 @@ shinyUI(fluidPage( #pageWithSidebar
   #headerPanel("US Census 2000/2010"),
   
   tags$head(
-    tags$style("#map1{height:95vh !important;}"),
-    tags$style("#map2{height:95vh !important;}"),
+    tags$style("#map3{height:95vh !important;}"),
     tags$style(HTML("
                     div.container {
         width: 100%;
@@ -47,7 +46,8 @@ shinyUI(fluidPage( #pageWithSidebar
                       list("None" = "None",
                            "2000" = "2000", 
                            "2010" = "2010",
-                           "Both 2000 and 2010" = "Both 2000 and 2010")), 
+                           "Both 2000 and 2010" = "Both 2000 and 2010",
+                           "Difference Between" = "Difference Between")), 
           actionButton("action", "Go!")
         ),
         
@@ -90,16 +90,7 @@ shinyUI(fluidPage( #pageWithSidebar
       )),
     mainPanel(width = 12,
               tabsetPanel(
-                tabPanel("Plot(s)", 
-                  fluidRow(
-                    column(12, align = "center", br(),
-                           plotOutput("map1", width = "100%"))
-                  ),
-                  br(),
-                  fluidRow(
-                    column(12, align = "center",
-                           plotOutput("map2", width = "100%"))
-                  )
+                tabPanel("Map(s)", uiOutput("maps", width = "100%")
                 ),
                 tabPanel("Table",
                          #radioButtons('useData', NULL, choices = c('Sort table by census data', 'Sort table by user data'), selected = NULL),

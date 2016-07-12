@@ -13,6 +13,18 @@ plotMap <- function(string, data, title) {
   county_choropleth(df, title = "", legend = "", num_colors = 9, state_zoom = NULL, county_zoom = NULL, reference_map = FALSE) + ggtitle(title)
 }
 
+plotDiffMap <- function(string, data1, data2, title) {
+  data <- abs(data2[, string] - data1[, string])
+  df <- as.data.frame(cbind(data1$county, data))
+  names(df) <- c("region", "value")
+  # remove leading zeros from FIP codes
+  # choropleth requires numeric column type in dataframe
+  df$region <- as.numeric(sapply(df$region, function(y) sub('^0+([1-9])', '\\1', y)))
+  df$value <- as.numeric(as.character(df$value))
+  county_choropleth(df, title = "", legend = "", num_colors = 9, state_zoom = NULL, county_zoom = NULL, reference_map = FALSE) + ggtitle(title)
+}
+
+
 addStatCol <- function(string, data, pop1, pop2) {
   if (string == 'Binomial Exact') {
     data[, string] <- sapply(1:length(data[, 1]), 
@@ -48,7 +60,7 @@ addStatCol <- function(string, data, pop1, pop2) {
                              function(i) {
                                if (data[i,2] != 0 & data[i,3] != 0 & pop1[i] != 0 & pop2[i] != 0) {
                                  # assume independence. disable Yates correction
-                                 z.test(data[i,2], data[i,3], (data[i,2] * pop1[i] + data[i,3] * pop2[i]) / (pop1[i] + pop2[i]), pop1[i], pop2[i])
+                                   z.test(data[i,2], data[i,3], (data[i,2] * pop1[i] + data[i,3] * pop2[i]) / (pop1[i] + pop2[i]), pop1[i], pop2[i])
                                } else {
                                  return(1.0)
                                }
