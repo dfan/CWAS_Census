@@ -6,31 +6,7 @@ shinyUI(fluidPage( #pageWithSidebar
   #headerPanel("US Census 2000/2010"),
   
   tags$head(
-    tags$style("#map3{height:95vh !important;}"),
-    tags$style(HTML("
-                    div.container {
-        width: 100%;
-                    }
-                    
-                    ")),
-    tags$script(
-      HTML("
-        $(document).ready(function(){
-          // Mark columns we want to toggle
-          $('body').find('div [class=col-sm-3]').addClass('sidebarPanel');
-          $('body').find('div [class=col-sm-6]').addClass('sidebarPanel');
-          // fluidRow belongs to the well class
-          $('body').find('div [class=well]').addClass('sidebarPanel');
-          $('body').find('div [class=col-sm-12]').addClass('mainPanel');
-        })
-       
-        Shiny.addCustomMessageHandler ('resize',function (message) {
-        $('.sidebarPanel').toggle();
-        // $('.mainPanel').toggleClass('col-sm-12');
-        $(window).trigger('resize')
-        });
-     ")
-    )
+    tags$style("#map3{height:95vh !important;}")
   ),
   
   actionButton("showpanel", "Show/hide sidebar"),
@@ -39,6 +15,7 @@ shinyUI(fluidPage( #pageWithSidebar
   # and to specify whether outliers should be included
   
   sidebarLayout(
+    conditionalPanel("input.showpanel % 2 == 0",
     sidebarPanel(width = 12,
       fluidRow(
         column(width = 3,
@@ -87,10 +64,10 @@ shinyUI(fluidPage( #pageWithSidebar
                                 '"')
             ))
           )
-      )),
+      ))),
     mainPanel(width = 12,
               tabsetPanel(
-                tabPanel("Map(s)", uiOutput("maps", width = "100%")
+                tabPanel("Map(s)", uiOutput("maps")
                 ),
                 tabPanel("Table",
                          #radioButtons('useData', NULL, choices = c('Sort table by census data', 'Sort table by user data'), selected = NULL),

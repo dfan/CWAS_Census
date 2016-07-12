@@ -128,6 +128,16 @@ shinyServer(function(input, output, session) {
     }
   })
   
+  output$map1 <- renderPlot({
+    plotObject1()
+  })
+  output$map2 <- renderPlot({
+    plotObject2()
+  })
+  output$map3 <- renderPlot({
+    plotObject3()
+  })
+  
   # Reactive scope reference: https://shinydata.wordpress.com/2015/02/02/a-few-things-i-learned-about-shiny-and-reactive-programming/
   output$maps <- renderUI({
     # isolate mapType value update so that reactive dependencies don't override the isolated go button
@@ -136,11 +146,11 @@ shinyServer(function(input, output, session) {
   
     if (mapType == 'Both 2000 and 2010') {
       column(12,
-        column(6, align = "center", renderPlot({ plotObject1() })),
-        column(6, align = "center", renderPlot({ plotObject2() }))
+        column(6, align = "center", plotOutput("map1", width = "100%")),
+        column(6, align = "center", plotOutput("map2", width = "100%"))
       )
     } else {
-      column(12, br(), renderPlot({ plotObject3() }))
+        column(12, align = "center", br(), plotOutput("map3", width = "100%"))
     }
   })
   
