@@ -1,16 +1,94 @@
 library(RMySQL)
 library(choroplethr)
 library(ggplot2)
+library(gridExtra)
 
 # external file because function is non-reactive
-plotMap <- function(string, data, title) {
+plotMap <- function(string, data, title, buckets, legend) {
   df <- as.data.frame(cbind(data$county, data[, string]))
   names(df) <- c("region", "value")
   # remove leading zeros from FIP codes
   # choropleth requires numeric column type in dataframe
   df$region <- as.numeric(sapply(df$region, function(y) sub('^0+([1-9])', '\\1', y)))
   df$value <- as.numeric(as.character(df$value))
-  county_choropleth(df, title = "", legend = "", num_colors = 9, state_zoom = NULL, county_zoom = NULL, reference_map = FALSE) + ggtitle(title)
+  df$value <- factor(sapply(df$value, function(y) {
+                                if (y <= buckets[1])
+                                  y <- paste('[', '0 to', format(buckets[1], big.mark=","), ')')
+                                else if (y <= buckets[2])
+                                  y <- paste('[', format(buckets[1],  big.mark=","), 'to', format(buckets[2], big.mark = ","), ')')
+                                else if (y <= buckets[3])
+                                  y <- paste('[', format(buckets[2], big.mark=","), 'to', format(buckets[3], big.mark = ","), ')')
+                                else if (y <= buckets[4])
+                                  y <- paste('[', format(buckets[3],  big.mark=","), 'to', format(buckets[4], big.mark = ","), ')')
+                                else if (y <= buckets[5])
+                                  y <- paste('[', format(buckets[4],  big.mark=","), 'to', format(buckets[5], big.mark = ","), ')')
+                                else if (y <= buckets[6])
+                                  y <- paste('[', format(buckets[5],  big.mark=","), 'to', format(buckets[6], big.mark = ","), ')')
+                                else
+                                  y <- paste('[', format(buckets[6],  big.mark=","), 'to', format(buckets[7], big.mark = ","), ']')
+                                }))
+  # additional customizations require creating a CountyChoropleth object, not using the county_choropleth() method
+  map <- CountyChoropleth$new(df)
+  map$title <- title
+  
+  legendLabels <- getLabels(buckets)
+  if (string == 'red') {
+    map$ggplot_scale = scale_fill_brewer(name=NULL, labels = legendLabels, palette="Reds", drop=FALSE, guide = FALSE)
+    if (legend == 'legendandmap' || legend == 'legendonly') {
+      map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Reds", drop=FALSE)
+    }
+  }
+  if (string == 'blue') {
+    map$ggplot_scale = scale_fill_brewer(name=NULL, labels = legendLabels, palette="Blues", drop=FALSE, guide = FALSE)
+    if (legend == 'legendandmap' || legend == 'legendonly') {
+      map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Blues", drop=FALSE)
+    }
+  }
+  if (string != 'red' && string != 'blue') {
+    map$ggplot_scale = scale_fill_brewer(name=NULL, labels = legendLabels, palette="Greens", drop=FALSE, guide = FALSE)
+    if (legend == 'legendandmap' || legend == 'legendonly') {
+      map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Greens", drop=FALSE)
+    }
+  }
+  renderMap(map, legend)
+}
+
+renderMap <- function(map, legend) {
+  if (legend == "legendonly") {
+    tmp <- ggplot_gtable(ggplot_build(map$render()))
+    leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+    legend <- tmp$grobs[[leg]]
+    # so legend doesn't disappear when page resizes
+    return(legend)
+  } else {
+    return(map)
+  }
+}
+
+getBuckets <- function(data1, data2) {
+  if (!is.null(data2)) {
+    if (class(data1) == 'integer' && class(data2) == 'integer')
+      return(floor(quantile(cbind(data1,data2), c(1/7.0, 2/7.0, 3/7.0, 4/7.0, 5/7.0, 6/7.0, 1.0))))
+    return(round(quantile(cbind(data1,data2), c(1/7.0, 2/7.0, 3/7.0, 4/7.0, 5/7.0, 6/7.0, 1.0)), 5))
+  }
+  if (class(data1) != 'integer')
+    return(round(quantile(data1, c(1/7.0, 2/7.0, 3/7.0, 4/7.0, 5/7.0, 6/7.0, 1.0)), 5))
+  return(floor(quantile(data1, c(1/7.0, 2/7.0, 3/7.0, 4/7.0, 5/7.0, 6/7.0, 1.0))))
+}
+
+getLabels <- function(buckets) {
+  y <- c(
+         paste('[', '0 to', format(buckets[1], big.mark=","), ')'),
+         paste('[', format(buckets[1],  big.mark=","), 'to', format(buckets[2], big.mark = ","), ')'),
+         paste('[', format(buckets[2], big.mark=","), 'to', format(buckets[3], big.mark = ","), ')'),
+         paste('[', format(buckets[3],  big.mark=","), 'to', format(buckets[4], big.mark = ","), ')'),
+         paste('[', format(buckets[4],  big.mark=","), 'to', format(buckets[5], big.mark = ","), ')'),
+         paste('[', format(buckets[5],  big.mark=","), 'to', format(buckets[6], big.mark = ","), ')'),
+         paste('[', format(buckets[6],  big.mark=","), 'to', format(buckets[7], big.mark = ","), ']')
+        )
+
+  #y <- factor(y, labels = y, ordered = TRUE)
+  return(y)
 }
 
 plotDiffMap <- function(string, data1, data2, title) {
@@ -21,7 +99,15 @@ plotDiffMap <- function(string, data1, data2, title) {
   # choropleth requires numeric column type in dataframe
   df$region <- as.numeric(sapply(df$region, function(y) sub('^0+([1-9])', '\\1', y)))
   df$value <- as.numeric(as.character(df$value))
-  county_choropleth(df, title = "", legend = "", num_colors = 9, state_zoom = NULL, county_zoom = NULL, reference_map = FALSE) + ggtitle(title)
+  # additional customizations require creating a CountyChoropleth object, not using the county_choropleth() method
+  map <- CountyChoropleth$new(df)
+  map$title = title
+  map$ggplot_scale = scale_fill_brewer(name=NULL, palette="Greens", drop=FALSE)
+  if (string == 'red')
+    map$ggplot_scale = scale_fill_brewer(name=NULL, palette="Reds", drop=FALSE)
+  if (string == 'blue')
+    map$ggplot_scale = scale_fill_brewer(name=NULL, palette="Blues", drop=FALSE)
+  return(map)
 }
 
 

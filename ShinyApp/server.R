@@ -2,6 +2,7 @@ library(shiny)
 library(RMySQL)
 library(choroplethr)
 library(ggplot2)
+library(grid)
 source("helper.R")
 
 con <- dbConnect(MySQL(), user = "root", password = "root", dbname = "census2000", unix.sock="/Applications/MAMP/tmp/mysql/mysql.sock")
@@ -22,11 +23,6 @@ shinyServer(function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote)
-  })
-  
-  # resize plots to fill whole page if browser window is resized
-  observeEvent(input$showpanel,{
-    session$sendCustomMessage(type = 'resize', message = 1)
   })
   
   formulaText <- reactive({
@@ -109,33 +105,48 @@ shinyServer(function(input, output, session) {
   # isolate -> dependency on go button
   # map 1
   plotObject1 <- eventReactive(input$action, {
-    plotMap(getPlotString(), data2000, paste("USA Colored by", input$variable2, 'in 2000'))
+    plotMap(getPlotString(), data2000, paste("USA Colored by", input$variable2, 'in 2000'), getBuckets(data2000[, getPlotString()], data2010[, getPlotString()]), '')
   })
   
   # map 2 if both are selected
   plotObject2 <- eventReactive(input$action, {
-    plotMap(getPlotString(), data2010, paste("USA Colored by", input$variable2, 'in 2010'))
+    plotMap(getPlotString(), data2010, paste("USA Colored by", input$variable2, 'in 2010'), getBuckets(data2000[, getPlotString()], data2010[, getPlotString()]), '')
   })
   
   # unfortunately had to declare a third because in UI the double column won't resolve two maps called map1
   plotObject3 <- eventReactive(input$action, {
     if (input$variable1 == '2000') {
-      plotMap(getPlotString(), data2000, paste("USA Colored by", input$variable2, 'in 2000'))
+      plotMap(getPlotString(), data2000, paste("USA Colored by", input$variable2, 'in 2000'), getBuckets(data2000[, getPlotString()], NULL), 'legendandmap')
     } else if (input$variable1 == '2010') {
-      plotMap(getPlotString(), data2010, paste("USA Colored by", input$variable2, 'in 2010'))
+      plotMap(getPlotString(), data2010, paste("USA Colored by", input$variable2, 'in 2010'), getBuckets(data2010[, getPlotString()], NULL), 'legendandmap')
     } else if (input$variable1 == 'Difference Between') {
       plotDiffMap(getPlotString(), data2000, data2010, formulaText())
     }
   })
   
+  plotLegend <- eventReactive(input$action, {
+    plotMap(getPlotString(), data2000, paste("USA Colored by", input$variable2, 'in 2000'), 
+            getBuckets(data2000[, getPlotString()], data2010[, getPlotString()]), 'legendonly')
+  })
+  
+  
   output$map1 <- renderPlot({
-    plotObject1()
+    plotObject1()$render()
   })
   output$map2 <- renderPlot({
-    plotObject2()
+    plotObject2()$render()
   })
   output$map3 <- renderPlot({
-    plotObject3()
+    plotObject3()$render()
+  })
+  output$legend <- renderPlot({
+    # call grid.draw here instead of helper so legend doesn't disappear when page resizes
+    #pushViewport(viewport(x=0.5,y=0.5,width=0.9, height=0.9))
+    # legend is fixed size unfortunately in ggplot
+    grid.draw(plotLegend())
+    #upViewport()
+    # print(plotLegend())
+    #grid.draw(ggplotGrob(plotLegend())$grob[[8]])
   })
   
   # Reactive scope reference: https://shinydata.wordpress.com/2015/02/02/a-few-things-i-learned-about-shiny-and-reactive-programming/
@@ -146,8 +157,9 @@ shinyServer(function(input, output, session) {
   
     if (mapType == 'Both 2000 and 2010') {
       column(12,
-        column(6, align = "center", plotOutput("map1", width = "100%")),
-        column(6, align = "center", plotOutput("map2", width = "100%"))
+        column(5, align = "center", plotOutput("map1", width = "100%")),
+        column(2, align = "center", plotOutput("legend", width = "100%")),
+        column(5, align = "center", plotOutput("map2", width = "100%"))
       )
     } else {
         column(12, align = "center", br(), plotOutput("map3", width = "100%"))

@@ -6,7 +6,9 @@ shinyUI(fluidPage( #pageWithSidebar
   #headerPanel("US Census 2000/2010"),
   
   tags$head(
-    tags$style("#map3{height:95vh !important;}")
+    tags$style("#map3{height:95vh !important;}"),
+    #gets rid of weird small shift when you click go and the scrollbar disappears
+    tags$style(type="text/css", "body { overflow-y: scroll; }")
   ),
   
   actionButton("showpanel", "Show/hide sidebar"),
