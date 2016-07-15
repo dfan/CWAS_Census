@@ -16,14 +16,6 @@ options(shiny.maxRequestSize=150*1024^2)
 
 # Define server logic required to output displays
 shinyServer(function(input, output, session) {
-  output$contents <- renderTable({
-    # input$file1 is NULL initially. After user uploads a file, it will be a data frame with 'name', 'size', 'type', 
-    # and 'datapath' columns. The 'datapath' column will contain the local filenames where the data can be found.
-    inFile <- input$file1
-    if (is.null(inFile))
-      return(NULL)
-    read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote)
-  })
   
   formulaText <- reactive({
     if (input$variable1 != 'Difference Between')
@@ -42,6 +34,20 @@ shinyServer(function(input, output, session) {
   getMapType <- reactive({
     return (input$variable1)
   })
+  
+  getNumRows <- reactive({
+    return (as.numeric(input$rows))
+  })
+
+  getNumCols <- reactive({
+    return (as.numeric(input$cols))
+  })
+  
+  # height parameter in plotOuput doesn't work when you do arithmetic.. even tho the number is rendered
+  getHeight <- reactive(
+    return (floor(session$clientData$output_map1_height * 0.1))
+    # return (session$clientData[[paste0('output_', 'map1', '_height')]])
+  )
   
   # for choropleth maps
   getPlotString <- reactive({
@@ -129,7 +135,6 @@ shinyServer(function(input, output, session) {
             getBuckets(data2000[, getPlotString()], data2010[, getPlotString()]), 'legendonly')
   })
   
-  
   output$map1 <- renderPlot({
     plotObject1()$render()
   })
@@ -141,10 +146,9 @@ shinyServer(function(input, output, session) {
   })
   output$legend <- renderPlot({
     # call grid.draw here instead of helper so legend doesn't disappear when page resizes
-    #pushViewport(viewport(x=0.5,y=0.5,width=0.9, height=0.9))
     # legend is fixed size unfortunately in ggplot
+    # grid.arrange(plotLegend(), ncol=2)
     grid.draw(plotLegend())
-    #upViewport()
     # print(plotLegend())
     #grid.draw(ggplotGrob(plotLegend())$grob[[8]])
   })
@@ -154,19 +158,30 @@ shinyServer(function(input, output, session) {
     # isolate mapType value update so that reactive dependencies don't override the isolated go button
     input$action
     isolate(mapType <- getMapType())
-  
+    isolate(cols <- getNumCols())
+
     if (mapType == 'Both 2000 and 2010') {
-      column(12,
-        column(5, align = "center", plotOutput("map1", width = "100%")),
-        column(2, align = "center", plotOutput("legend", width = "100%")),
-        column(5, align = "center", plotOutput("map2", width = "100%"))
+      column(12, align = "center", 
+          column(12, align = "center",
+                  # eventually use sapply to generate the fluid rows. Figure out how to merge $map1 with $map2
+                 fluidRow(
+                   column(12, align = "center", plotOutput("legend", width = '100%', height = 75))
+                 ),
+                  fluidRow(
+                    column(floor(12 / cols), align = "center", plotOutput("map1", width = "100%")),
+                    column(floor(12 / cols), align = "center", plotOutput("map2", width = "100%")
+                  )
+                  
+                )
+        )
+        
       )
     } else {
         column(12, align = "center", br(), plotOutput("map3", width = "100%"))
     }
   })
-  
-  # for second panel
+   
+  ### for second panel ###
   output$table <- renderDataTable({
     string <- getTableString()
     data <- c('')
@@ -178,12 +193,11 @@ shinyServer(function(input, output, session) {
       data[, paste(input$sortBy, '(2010)')] <- as.numeric(as.character(data[, paste(input$sortBy, '(2010)')]))
       # If data didn't exist in 2000 but did in 2010, then set % change to 0. We don't want Inf values
       data <- addStatCol(input$stat, data, data2000$population, data2010$population)
-    } else if (input$useData == 'Sort table by user data' & !is.null(input$file1) & !is.null(input$file2)) {
-      table1 <- readTable1()
-      table2 <- readTable2()
+    } else if (input$useData == 'Sort table by user data' & !is.null(input$file1)) {
+      table <- readTable()
       # avoid error message when "None" is selected but files are uploaded
       if (input$sortBy != 'None') {
-        data <- as.data.frame(cbind(table1[, 1], table1[, input$sortBy], table2[, input$sortBy]))
+        data <- as.data.frame(cbind(table[, 1], table[, 2], table[, 3]))
         names(data) <- c('County', 'Year1', 'Year2')
         # ensure data is in numeric format so division happens correctly below. as.character prevents numeric from removing decimals
         data[, 'Year1'] <- as.numeric(as.character(data[, 'Year1']))
@@ -196,23 +210,12 @@ shinyServer(function(input, output, session) {
     }
   }, options=list(processing = FALSE, paging = FALSE, scrollX = TRUE, scrollY = "100vh"))
   
-  readTable1 <- reactive({
+  readTable <- reactive({
     inFile <- ''
     if (is.null(input$file1)) {
       return(NULL)
     } else {
       inFile <- input$file1
-    }
-    a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote)
-    a
-  })
-  
-  readTable2 <- reactive({
-    inFile <- ''
-    if (is.null(input$file2)) {
-      return(NULL)
-    } else {
-      inFile <- input$file2
     }
     a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote)
     a
@@ -232,14 +235,14 @@ shinyServer(function(input, output, session) {
                                                           "Red Vote %" = "Red Vote %")
            ),
            'Sort table by user data' = selectInput("sortBy", "Sort By:",
-                                                   c("None", colnames(readTable1()))
+                                                   c("None", colnames(readTable()))
            )
     )
   })
   
   # populate dropdown menu with column names of dataframe (table 1 and table 2 assumed to have same column names)
   output$icd9List <- renderUI({
-    selectInput('sorticd9', NULL, c("None", colnames(readTable1())))
+    selectInput('sorticd9', NULL, c("None", colnames(readTable())))
   })
   
   # Isolate output to give dependency on go button
@@ -248,12 +251,9 @@ shinyServer(function(input, output, session) {
     data <- ''
     if (input$icd9 == 'None selected' | is.null(input$file1) & is.null(input$file2)) {
       return(NULL)
-    } else if (input$icd9 == 'See ICD9 rates for table 1') {
+    } else if (input$icd9 == 'See ICD9 rates for user table') {
       inFile <- input$file1
       data = data2000
-    } else if (input$icd9 == 'See ICD9 rates for table 2') {
-      inFile <- input$file2
-      data = data2010
     }
     a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote)
     a <- as.data.frame(cbind(a[, 1], a[, input$sorticd9]))

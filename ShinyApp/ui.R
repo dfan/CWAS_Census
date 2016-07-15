@@ -26,8 +26,11 @@ shinyUI(fluidPage( #pageWithSidebar
                            "2000" = "2000", 
                            "2010" = "2010",
                            "Both 2000 and 2010" = "Both 2000 and 2010",
-                           "Difference Between" = "Difference Between")), 
-          actionButton("action", "Go!")
+                           "Difference Between" = "Difference Between")),
+          selectInput("whichMapData", "Select dataset:", 
+                                list("None" = "None",
+                                     "Plot by census data" = "Plot by census data",
+                                     "Plot by user data" = "Plot by user data"))
         ),
         
         column(width = 3,
@@ -39,13 +42,22 @@ shinyUI(fluidPage( #pageWithSidebar
                           "County Population" = "County Population",
                           "% Below Poverty" = "% Below Poverty",
                           "Blue Vote %" = "Blue Vote %",
-                          "Red Vote %" = "Red Vote %"))
+                          "Red Vote %" = "Red Vote %")),
+          fluidRow(
+            column(width = 4, selectInput("rows", "Rows", list("1" = "1",
+                                                               "2" = "2", 
+                                                               "3" = "3"), width = "100%")),
+            column(width = 4, selectInput("cols", "Columns", list("1" = "1",
+                                                                  "2" = "2", 
+                                                                  "3" = "3"), width = "100%")),
+            column(width = 4, br(), actionButton("action", "Go!", width = "100%", icon("paper-plane"), 
+                                                 style="color: #fff; background-color: #337ab7; border-color: #2e6da4"))
+          )
         ),
       
         column(width = 6,
             column(width = 5,
-              fileInput('file1', 'Choose CSV File', accept=c('text/csv', 'text/comma-separated-values,text/plain', '.csv')), 
-              fileInput('file2', NULL, accept=c('text/csv', 'text/comma-separated-values,text/plain', '.csv'))
+              fileInput('file1', 'Choose CSV File', accept=c('text/csv', 'text/comma-separated-values,text/plain', '.csv'))
             ),
             column(width = 7,
             fluidRow(
@@ -93,7 +105,7 @@ shinyUI(fluidPage( #pageWithSidebar
                   )
                 ),
                 tabPanel("ICD9s", 
-                         radioButtons('icd9', NULL, choices = c('None selected', 'See ICD9 rates for table 1', 'See ICD9 rates for table 2')),
+                         radioButtons('icd9', NULL, choices = c('None selected', 'See ICD9 rates for user table')),
                          uiOutput("icd9List"),
                          actionButton("displayTable", "Go!"),
                   fluidRow(
