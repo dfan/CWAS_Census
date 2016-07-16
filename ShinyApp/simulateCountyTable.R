@@ -22,11 +22,7 @@ con <- dbConnect(MySQL(), user = "root", password = "root", dbname = "census2010
 data2010 <- dbReadTable(conn = con, name = "acs")
 dbDisconnect(con)
 
-county1 <- as.data.frame(rbind(t(sapply(data2000$population, function(y) as.numeric(simulateControlCohort(1, y))))))
-county1 <- cbind(data2000$county, county1)
-names(county1) <- c('STCOU', names(simulateControlCohort(1,1)))
-write.table(county1, file = "testFile1.csv", sep = ",", row.names = FALSE) #row.names = FALSE prevents 1 -> length from being printed
-county2 <- as.data.frame(rbind(t(sapply(data2010$population, function(y) as.numeric(simulateControlCohort(1, y))))))
-county2 <- cbind(data2000$county, county2)
-names(county2) <- c('STCOU', names(simulateControlCohort(1,1)))
-write.table(county2, file = "testFile2.csv", sep = ",", row.names = FALSE)
+icd9 <- as.data.frame(rbind(t(sapply(data2000$population, function(y) as.numeric(simulateControlCohort(1, y))))))
+county <- cbind(data2000$county, icd9)
+names(county) <- c('STCOU', names(simulateControlCohort(1,1)))
+write.table(county, file = "testFile.csv", sep = ",", row.names = FALSE) #row.names = FALSE prevents 1 -> length from being printed

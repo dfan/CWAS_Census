@@ -10,175 +10,181 @@ data2000 <- dbReadTable(conn = con, name = "acs")
 dbDisconnect(con)
 con <- dbConnect(MySQL(), user = "root", password = "root", dbname = "census2010", unix.sock="/Applications/MAMP/tmp/mysql/mysql.sock")
 data2010 <- dbReadTable(conn = con, name = "acs")
+dataCombined <- cbind(data2000, data2010[, -1], data2010[, -1])
+colnames(dataCombined) <- c('county', read.csv('../Data/censusColNames.csv', stringsAsFactors=FALSE)[, 1])
 dbDisconnect(con)
 
 options(shiny.maxRequestSize=150*1024^2)
 
 # Define server logic required to output displays
 shinyServer(function(input, output, session) {
-  
-  formulaText <- reactive({
-    if (input$variable1 != 'Difference Between')
-      paste("USA Colored by", input$variable2, "in", input$variable1)
-    paste("USA Colored by", input$variable1, input$variable2, "in 2000 and 2010")
-  })
-  
-  output$caption <- renderText({
-   formulaText()
-  })
-  
-  output$mapType <- reactive({
-    return (input$variable1)
-  })
-  
-  getMapType <- reactive({
-    return (input$variable1)
-  })
-  
-  getNumRows <- reactive({
-    return (as.numeric(input$rows))
+  getTotal <- reactive({
+    return (as.numeric(input$total))
   })
 
   getNumCols <- reactive({
     return (as.numeric(input$cols))
   })
   
+  getNumRows <- reactive({
+    return (as.numeric(input$rows))
+  })
+  
+  getParam1a <- reactive({
+    return (input$variable1a)
+  })
+  
+  getParam1b <- reactive({
+    return (input$variable1b)
+  })
+  
+  getParam2a <- reactive({
+    return (input$variable2a)
+  })
+  
+  getParam2b <- reactive({
+    return (input$variable2b)
+  })
+  
+  getParam3a <- reactive({
+    return (input$variable3a)
+  })
+  
+  getParam3b <- reactive({
+    return (input$variable3b)
+  })
+  
+  getParam4a <- reactive({
+    return (input$variable4a)
+  })
+  
+  getParam4b <- reactive({
+    return (input$variable4b)
+  })
+  
+  getParam5a <- reactive({
+    return (input$variable5a)
+  })
+  
+  getParam5b <- reactive({
+    return (input$variable5b)
+  })
+  
+  getParam6a <- reactive({
+    return (input$variable6a)
+  })
+  
+  getParam6b <- reactive({
+    return (input$variable6b)
+  })
+  
+  getParam7a <- reactive({
+    return (input$variable7a)
+  })
+  
+  getParam7b <- reactive({
+    return (input$variable7b)
+  })
+  
+  getParam8a <- reactive({
+    return (input$variable8a)
+  })
+  
+  getParam8b <- reactive({
+    return (input$variable8b)
+  })
+  
+  getParam9a <- reactive({
+    return (input$variable9a)
+  })
+  
+  getParam9b <- reactive({
+    return (input$variable9b)
+  })
+  
+  
   # height parameter in plotOuput doesn't work when you do arithmetic.. even tho the number is rendered
   getHeight <- reactive(
-    return (floor(session$clientData$output_map1_height * 0.1))
+    return (floor((session$clientData$output_map1_height * 0.1)))
     # return (session$clientData[[paste0('output_', 'map1', '_height')]])
   )
   
-  # for choropleth maps
-  getPlotString <- reactive({
-    string <- c('')
-    if (input$variable2 == 'County Population') {
-      string = 'population'
-    }
-    if (input$variable2 == 'White Population %') {
-      string = 'white'
-    }
-    if (input$variable2 == 'Black Population %') {
-      string = 'black'
-    }
-    if (input$variable2 == 'Median Income') {
-      string = 'medianincome'
-    }
-    if (input$variable2 == "% Below Poverty") {
-      string = 'poverty'
-    }
-    if (input$variable2 == "Blue Vote %") {
-      string = 'blue'
-    }
-    if (input$variable2 == "Red Vote %") {
-      string = 'red'
-    }
-    string
-  })
-  
-  # for table display (not the maps)
-  getTableString <- reactive( {
-    string <- c('')
-    if (input$sortBy == 'County Population') {
-      string = 'population'
-    }
-    if (input$sortBy == 'White Population %') {
-      string = 'white'
-    }
-    if (input$sortBy == 'Black Population %') {
-      string = 'black'
-    }
-    if (input$sortBy == 'Median Income') {
-      string = 'medianincome'
-    }
-    if (input$sortBy == "% Below Poverty") {
-      string = 'poverty'
-    }
-    if (input$sortBy == "Blue Vote %") {
-      string = 'blue'
-    }
-    if (input$sortBy == "Red Vote %") {
-      string = 'red'
-    }
-    # make table disappear when you click None
-    if (input$useData == "None") {
-      string = ''
-    }
-    string
-  })
-  
-  # for toggling map display (don't let previous map linger when switching)
   # isolate -> dependency on go button
-  # map 1
-  plotObject1 <- eventReactive(input$action, {
-    plotMap(getPlotString(), data2000, paste("USA Colored by", input$variable2, 'in 2000'), getBuckets(data2000[, getPlotString()], data2010[, getPlotString()]), '')
-  })
-  
-  # map 2 if both are selected
-  plotObject2 <- eventReactive(input$action, {
-    plotMap(getPlotString(), data2010, paste("USA Colored by", input$variable2, 'in 2010'), getBuckets(data2000[, getPlotString()], data2010[, getPlotString()]), '')
-  })
-  
-  # unfortunately had to declare a third because in UI the double column won't resolve two maps called map1
-  plotObject3 <- eventReactive(input$action, {
-    if (input$variable1 == '2000') {
-      plotMap(getPlotString(), data2000, paste("USA Colored by", input$variable2, 'in 2000'), getBuckets(data2000[, getPlotString()], NULL), 'legendandmap')
-    } else if (input$variable1 == '2010') {
-      plotMap(getPlotString(), data2010, paste("USA Colored by", input$variable2, 'in 2010'), getBuckets(data2010[, getPlotString()], NULL), 'legendandmap')
-    } else if (input$variable1 == 'Difference Between') {
-      plotDiffMap(getPlotString(), data2000, data2010, formulaText())
-    }
+  plotObjects <- eventReactive(input$action, {
+    values <- reactiveValues(i = 0)
+    if (input$whichMapData == 'Plot by census data')
+      data <- dataCombined
+    if (input$whichMapData == 'Plot by user data')
+      data <- readTable()
+    data2 <- NULL 
+    data3 <- NULL 
+    if (getParam2a() != 'None')
+      data2 <- data[, getParam2a()]
+    if (getParam3a() != 'None')
+      data3 <- data[, getParam3a()]
+    legend <- ''
+    if (is.null(data2) && is.null(data3))
+      legend <- 'legendandmap'
+    
+    plotList <<- lapply(1:getTotal(), function(x) {
+        if (input$difference)
+          plotDiffMap(get(paste0('getParam', values$i, 'a'))(), get(paste0('getParam', values$i , 'b'))(), data, paste("USA Colored by Difference in", get(paste0('getParam', values$i, 'a'))(), 'and', get(paste0('getParam', values$i, 'a'))()))$render()
+        if (!input$difference) {
+          values$i <- values$i + 1
+          plotMap(get(paste0('getParam', values$i, 'a'))(), data, paste("USA Colored by", get(paste0('getParam', values$i , 'a'))()), getBuckets(data[, get(paste0('getParam', values$i, 'a'))()], data2, data3), legend)$render()
+        }
+      })
+      return(plotList)
   })
   
   plotLegend <- eventReactive(input$action, {
-    plotMap(getPlotString(), data2000, paste("USA Colored by", input$variable2, 'in 2000'), 
-            getBuckets(data2000[, getPlotString()], data2010[, getPlotString()]), 'legendonly')
+    if (input$whichMapData == 'Plot by census data')
+      data <- dataCombined
+    if (input$whichMapData == 'Plot by user data')
+      data <- readTable() 
+    param1a <- getParam1a()
+    param1b <- getParam1b()
+    param2a <- getParam2a()
+    param2b <- getParam2b()
+    param3a <- getParam3a()
+    param3b <- getParam3b()
+    data2 <- NULL 
+    data3 <- NULL 
+    if (param2a != 'None')
+      data2 <- data[, param2a]
+    if (param3a != 'None')
+      data3 <- data[, param3a]
+    if (input$difference)
+      plotDiffMap(param1a, param1b, data, paste("USA Colored by Difference in", param1a, 'and', param1b))
+    if (!input$difference)
+      plotMap(param1a, data, paste("USA Colored by", param1a), getBuckets(data[, param1a], data2, data3), 'legendonly')
+  })
+
+  output$allmaps <- renderPlot({
+    do.call("grid.arrange", c(plotObjects(), ncol=getNumCols(), nrow = ceiling(getTotal() / getNumCols())))
   })
   
-  output$map1 <- renderPlot({
-    plotObject1()$render()
-  })
-  output$map2 <- renderPlot({
-    plotObject2()$render()
-  })
-  output$map3 <- renderPlot({
-    plotObject3()$render()
-  })
   output$legend <- renderPlot({
     # call grid.draw here instead of helper so legend doesn't disappear when page resizes
     # legend is fixed size unfortunately in ggplot
-    # grid.arrange(plotLegend(), ncol=2)
-    grid.draw(plotLegend())
-    # print(plotLegend())
-    #grid.draw(ggplotGrob(plotLegend())$grob[[8]])
+    if (getTotal() > 1)
+      grid.draw(plotLegend())
   })
   
   # Reactive scope reference: https://shinydata.wordpress.com/2015/02/02/a-few-things-i-learned-about-shiny-and-reactive-programming/
   output$maps <- renderUI({
     # isolate mapType value update so that reactive dependencies don't override the isolated go button
     input$action
-    isolate(mapType <- getMapType())
-    isolate(cols <- getNumCols())
+    isolate(total <- getTotal())
 
-    if (mapType == 'Both 2000 and 2010') {
-      column(12, align = "center", 
-          column(12, align = "center",
-                  # eventually use sapply to generate the fluid rows. Figure out how to merge $map1 with $map2
-                 fluidRow(
-                   column(12, align = "center", plotOutput("legend", width = '100%', height = 75))
-                 ),
-                  fluidRow(
-                    column(floor(12 / cols), align = "center", plotOutput("map1", width = "100%")),
-                    column(floor(12 / cols), align = "center", plotOutput("map2", width = "100%")
-                  )
-                  
-                )
-        )
-        
+    column(12, align = "center", 
+        fluidRow(
+          plotOutput("allmaps", width = '100%')
+        ),
+      fluidRow(
+        column(12, align = "center", plotOutput("legend", width = '100%', height = 75))
       )
-    } else {
-        column(12, align = "center", br(), plotOutput("map3", width = "100%"))
-    }
+    )
   })
    
   ### for second panel ###
@@ -210,33 +216,119 @@ shinyServer(function(input, output, session) {
     }
   }, options=list(processing = FALSE, paging = FALSE, scrollX = TRUE, scrollY = "100vh"))
   
-  readTable <- reactive({
+  readMap <- reactive({
     inFile <- ''
-    if (is.null(input$file1)) {
+    if (input$whichMapData == 'Plot by census data') {
+      a <- read.csv('../Data/censusColNames.csv', stringsAsFactors=FALSE)
+    } else if (is.null(input$file1)) {
       return(NULL)
     } else {
       inFile <- input$file1
+      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote)
     }
-    a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote)
     a
   })
   
+  readTable <- reactive({
+    inFile <- ''
+    if (input$useData == 'Sort table by census data') {
+      a <- read.csv('../Data/censusColNames.csv', stringsAsFactors=FALSE)
+    } else if (is.null(input$file1)) {
+      return(NULL)
+    } else {
+      inFile <- input$file1
+      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote)
+    }
+    a
+  })
+  
+  output$map1Selection1 <- renderUI({
+    selectInput("variable1a", "Map 1:", getMapCols())
+  })
+  
+  output$map1Selection2 <- renderUI({
+    selectInput("variable1b", "Map 1:", getMapCols())
+  })
+  
+  output$map2Selection1 <- renderUI({
+    selectInput("variable2a", "Map 2:", getMapCols())
+  })
+  
+  output$map2Selection2 <- renderUI({
+    selectInput("variable2b", "Map 2:", getMapCols())
+  })
+  
+  output$map3Selection1 <- renderUI({
+    selectInput("variable3a", "Map 3:", getMapCols())
+  })
+  
+  output$map3Selection2 <- renderUI({
+    selectInput("variable3b", "Map 3:", getMapCols())
+  })
+  
+  output$map4Selection1 <- renderUI({
+    selectInput("variable4a", "Map 4:", getMapCols())
+  })
+  
+  output$map4Selection2 <- renderUI({
+    selectInput("variable4b", "Map 4:", getMapCols())
+  })
+  
+  output$map5Selection1 <- renderUI({
+    selectInput("variable5a", "Map 5:", getMapCols())
+  })
+  
+  output$map5Selection2 <- renderUI({
+    selectInput("variable5b", "Map 5:", getMapCols())
+  })
+  
+  output$map6Selection1 <- renderUI({
+    selectInput("variable6a", "Map 6:", getMapCols())
+  })
+  
+  output$map6Selection2 <- renderUI({
+    selectInput("variable6b", "Map 6:", getMapCols())
+  })
+  
+  output$map7Selection1 <- renderUI({
+    selectInput("variable7a", "Map 7:", getMapCols())
+  })
+  
+  output$map7Selection2 <- renderUI({
+    selectInput("variable7b", "Map 7:", getMapCols())
+  })
+  
+  output$map8Selection1 <- renderUI({
+    selectInput("variable8a", "Map 8:", getMapCols())
+  })
+  
+  output$map8Selection2 <- renderUI({
+    selectInput("variable8b", "Map 8:", getMapCols())
+  })
+  
+  output$map9Selection1 <- renderUI({
+    selectInput("variable9a", "Map 9:", getMapCols())
+  })
+  
+  output$map9Selection2 <- renderUI({
+    selectInput("variable9b", "Map 9:", getMapCols())
+  })
+  
   output$tableList <- renderUI({
+    selectInput("sortBy", "Sort By:", getTableCols())
+  })
+  
+  getMapCols <- reactive({
+    switch(input$whichMapData,
+           'Plot by census data' = c('None', readMap()[, 1]),
+           'Plot by user data' = c('None', colnames(readMap())[-1])
+    )
+  })
+  
+  getTableCols <- reactive({
     switch(input$useData,
-           'None' = selectInput("sortBy", "Sort By:", list("")),
-           'Sort table by census data' = selectInput("sortBy", "Sort By:",
-                                                     list("None" = "None",
-                                                          "Median Income" = "Median Income", 
-                                                          "Black Population %" = "Black Population %",
-                                                          "White Population %" = "White Population %",
-                                                          "County Population" = "County Population",
-                                                          "% Below Poverty" = "% Below Poverty",
-                                                          "Blue Vote %" = "Blue Vote %",
-                                                          "Red Vote %" = "Red Vote %")
-           ),
-           'Sort table by user data' = selectInput("sortBy", "Sort By:",
-                                                   c("None", colnames(readTable()))
-           )
+           'Sort table by census data' = c('None', readTable()[, 1]),
+           'Sort table by user data' = c('None', colnames(readTable())[-1])
     )
   })
   
