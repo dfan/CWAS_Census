@@ -81,6 +81,7 @@ shinyUI(fluidPage( #pageWithSidebar
                  column(width = 12,
                    fluidRow(selectInput("total", "Total Plots", list("1" = "1", "2" = "2", "3" = "3", "4" = "4", "5" = "5", "6" = "6", "7" = "7", "8" = "8", "9" = "9"), width = "100%")),
                    fluidRow(selectInput("cols", "Columns", list("1" = "1", "2" = "2", "3" = "3"), width = "100%")),
+                   fluidRow(selectInput("detailLevel", "Level of Detail:", list("None" = "None", "Zip Code" = "Zip Code", "County" = "County", "State" = "State"))),
                    fluidRow(actionButton("action", "Go!", width = "100%", icon("paper-plane"), 
                             style="color: #fff; background-color: #337ab7; border-color: #2e6da4"))
                  )
@@ -99,7 +100,8 @@ shinyUI(fluidPage( #pageWithSidebar
                                                list("None" = "None",
                                                     "Sort table by census data" = "Sort table by census data",
                                                     "Sort table by user data" = "Sort table by user data"))),
-                         column(3, uiOutput("tableList")),
+                         column(3, uiOutput("table1List")),
+                         column(3, uiOutput("table2List")),
                          column(3, selectInput("stat", "Order by statistic:",
                                                list("None" = "None",
                                                     "Binomial Exact" = "Binomial Exact", 

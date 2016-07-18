@@ -2,6 +2,8 @@ library(shiny)
 library(RMySQL)
 library(choroplethr)
 library(ggplot2)
+library(gtable)
+library(gridExtra)
 library(grid)
 source("helper.R")
 
@@ -11,8 +13,11 @@ dbDisconnect(con)
 con <- dbConnect(MySQL(), user = "root", password = "root", dbname = "census2010", unix.sock="/Applications/MAMP/tmp/mysql/mysql.sock")
 data2010 <- dbReadTable(conn = con, name = "acs")
 dataCombined <- cbind(data2000, data2010[, -1], data2010[, -1])
+setwd('/Users/dfan/Dropbox/Research\ Lab\ Projects/Undergraduate/Harvard-MIT\ 2016/Code/CWAS_Census/ShinyApp')
 colnames(dataCombined) <- c('county', read.csv('../Data/censusColNames.csv', stringsAsFactors=FALSE)[, 1])
 dbDisconnect(con)
+# takes absurdly long... prevents menu from being loaded immediately
+dataState <- aggregateToState(dataCombined)
 
 options(shiny.maxRequestSize=150*1024^2)
 
@@ -28,6 +33,10 @@ shinyServer(function(input, output, session) {
   
   getNumRows <- reactive({
     return (as.numeric(input$rows))
+  })
+  
+  getDetail <- reactive({
+    return (input$detailLevel)
   })
   
   getParam1a <- reactive({
@@ -112,8 +121,16 @@ shinyServer(function(input, output, session) {
   # isolate -> dependency on go button
   plotObjects <- eventReactive(input$action, {
     values <- reactiveValues(i = 0)
-    if (input$whichMapData == 'Plot by census data')
-      data <- dataCombined
+    # change from county to state data here
+    if (input$whichMapData == 'Plot by census data') {
+      if (input$detailLevel == 'County') {
+        data <- dataCombined
+        # get rid of leading zeros
+        data[, 1] <- as.numeric(sapply(data[, 1], function(y) sub('^0+([1-9])', '\\1', y)))
+      } else if (input$detailLevel == 'State') {
+        data <- dataState
+      }
+    }
     if (input$whichMapData == 'Plot by user data')
       data <- readTable()
     data2 <- NULL 
@@ -127,37 +144,41 @@ shinyServer(function(input, output, session) {
       legend <- 'legendandmap'
     
     plotList <<- lapply(1:getTotal(), function(x) {
-        if (input$difference)
-          plotDiffMap(get(paste0('getParam', values$i, 'a'))(), get(paste0('getParam', values$i , 'b'))(), data, paste("USA Colored by Difference in", get(paste0('getParam', values$i, 'a'))(), 'and', get(paste0('getParam', values$i, 'a'))()))$render()
-        if (!input$difference) {
+        if (input$difference) {
           values$i <- values$i + 1
-          plotMap(get(paste0('getParam', values$i, 'a'))(), data, paste("USA Colored by", get(paste0('getParam', values$i , 'a'))()), getBuckets(data[, get(paste0('getParam', values$i, 'a'))()], data2, data3), legend)$render()
+          plotDiffMap(get(paste0('getParam', values$i, 'a'))(), get(paste0('getParam', values$i , 'b'))(), data, paste("USA Colored by Difference in", get(paste0('getParam', values$i, 'a'))(), 'and', get(paste0('getParam', values$i, 'b'))()), getBuckets(data[, get(paste0('getParam', values$i, 'a'))()], data[, get(paste0('getParam', values$i, 'b'))()], data3), getDetail(), legend)$render()
+        } else if (!input$difference) {
+          # order matters; value line goes first
+          values$i <- values$i + 1
+          plotMap(get(paste0('getParam', values$i, 'a'))(), data, paste("USA Colored by", get(paste0('getParam', values$i , 'a'))()), getBuckets(data[, get(paste0('getParam', values$i, 'a'))()], data2, data3), getDetail(), legend)$render()
         }
       })
       return(plotList)
   })
   
   plotLegend <- eventReactive(input$action, {
-    if (input$whichMapData == 'Plot by census data')
-      data <- dataCombined
+    values <- reactiveValues(i = 0)
+    if (input$whichMapData == 'Plot by census data') {
+      if (input$detailLevel == 'County') {
+        data <- dataCombined
+        # get rid of leading zeros
+        data[, 1] <- as.numeric(sapply(data[, 1], function(y) sub('^0+([1-9])', '\\1', y)))
+      } else if (input$detailLevel == 'State') {
+        data <- dataState
+      }
+    }
     if (input$whichMapData == 'Plot by user data')
-      data <- readTable() 
-    param1a <- getParam1a()
-    param1b <- getParam1b()
-    param2a <- getParam2a()
-    param2b <- getParam2b()
-    param3a <- getParam3a()
-    param3b <- getParam3b()
+      data <- readTable()
     data2 <- NULL 
     data3 <- NULL 
-    if (param2a != 'None')
-      data2 <- data[, param2a]
-    if (param3a != 'None')
-      data3 <- data[, param3a]
+    if (getParam2a() != 'None')
+      data2 <- data[, getParam2a()]
+    if (getParam3a() != 'None')
+      data3 <- data[, getParam3a()]
     if (input$difference)
-      plotDiffMap(param1a, param1b, data, paste("USA Colored by Difference in", param1a, 'and', param1b))
+      plotDiffMap(getParam1a(), getParam1b(), data, paste("USA Colored by Difference in", getParam1a(), 'and', getParam1b()), getDetail(), 'legendonly')
     if (!input$difference)
-      plotMap(param1a, data, paste("USA Colored by", param1a), getBuckets(data[, param1a], data2, data3), 'legendonly')
+      plotMap(getParam1a(), data, paste("USA Colored by", getParam1a()), getBuckets(data[, getParam1a()], data2, data3), getDetail(), 'legendonly')
   })
 
   output$allmaps <- renderPlot({
@@ -179,7 +200,8 @@ shinyServer(function(input, output, session) {
 
     column(12, align = "center", 
         fluidRow(
-          plotOutput("allmaps", width = '100%')
+          # think about aspect ratios (width adjusts pretty well but height is weird)
+          column(12, align = "center", plotOutput("allmaps", width = '100%'))
         ),
       fluidRow(
         column(12, align = "center", plotOutput("legend", width = '100%', height = 75))
@@ -189,31 +211,21 @@ shinyServer(function(input, output, session) {
    
   ### for second panel ###
   output$table <- renderDataTable({
-    string <- getTableString()
-    data <- c('')
-    if (input$useData == 'Sort table by census data' & input$stat != 'None' & getTableString() != '') {
-      data <- as.data.frame(cbind(data2000$county, data2000[, string], data2010[, string]))
-      names(data) <- c('County', paste(input$sortBy, '(2000)'), paste(input$sortBy, '(2010)'))
-      # ensure data is in numeric format so division happens correctly below. as.character prevents numeric from removing decimals
-      data[, paste(input$sortBy, '(2000)')] <- as.numeric(as.character(data[, paste(input$sortBy, '(2000)')]))
-      data[, paste(input$sortBy, '(2010)')] <- as.numeric(as.character(data[, paste(input$sortBy, '(2010)')]))
-      # If data didn't exist in 2000 but did in 2010, then set % change to 0. We don't want Inf values
-      data <- addStatCol(input$stat, data, data2000$population, data2010$population)
-    } else if (input$useData == 'Sort table by user data' & !is.null(input$file1)) {
-      table <- readTable()
-      # avoid error message when "None" is selected but files are uploaded
-      if (input$sortBy != 'None') {
-        data <- as.data.frame(cbind(table[, 1], table[, 2], table[, 3]))
-        names(data) <- c('County', 'Year1', 'Year2')
-        # ensure data is in numeric format so division happens correctly below. as.character prevents numeric from removing decimals
-        data[, 'Year1'] <- as.numeric(as.character(data[, 'Year1']))
-        data[, 'Year2'] <- as.numeric(as.character(data[, 'Year2']))
-        # If data didn't exist in 2000 but did in 2010, then set % change to 0. We don't want Inf values
-        data <- addStatCol(input$stat, data, data2000$population, data2010$population)
-      }
+    if (input$useData == 'Sort table by census data') {
+      data <- dataCombined
+    } else if (input$useData == 'Sort table by user data') {
+      data <- readTable()
     } else {
+    # avoid error message when "None" is selected but files are uploaded
       return(NULL)
     }
+    data <- as.data.frame(cbind(data$county, data[, input$sort1By], data[, input$sort2By]))
+    names(data) <- c('county', input$sort1By, input$sort2By)
+    # ensure data is in numeric format so division happens correctly below. as.character prevents numeric from removing decimals
+    data[, input$sort1By] <- as.numeric(as.character(data[, input$sort1By]))
+    data[, input$sort2By] <- as.numeric(as.character(data[, input$sort2By]))
+    # If data didn't exist in 2000 but did in 2010, then set % change to 0. We don't want Inf values
+    data <- addStatCol(input$stat, data, pop1 = dataCombined$population2000, pop2 = dataCombined$population2010)
   }, options=list(processing = FALSE, paging = FALSE, scrollX = TRUE, scrollY = "100vh"))
   
   readMap <- reactive({
@@ -314,8 +326,12 @@ shinyServer(function(input, output, session) {
     selectInput("variable9b", "Map 9:", getMapCols())
   })
   
-  output$tableList <- renderUI({
-    selectInput("sortBy", "Sort By:", getTableCols())
+  output$table1List <- renderUI({
+    selectInput("sort1By", "Sort By:", getTableCols())
+  })
+  
+  output$table2List <- renderUI({
+    selectInput("sort2By", "Sort By:", getTableCols())
   })
   
   getMapCols <- reactive({
@@ -334,7 +350,7 @@ shinyServer(function(input, output, session) {
   
   # populate dropdown menu with column names of dataframe (table 1 and table 2 assumed to have same column names)
   output$icd9List <- renderUI({
-    selectInput('sorticd9', NULL, c("None", colnames(readTable())))
+    selectInput('sorticd9', NULL, c("None", colnames(readTable())[-1]))
   })
   
   # Isolate output to give dependency on go button
@@ -357,5 +373,4 @@ shinyServer(function(input, output, session) {
   output$icd9table <- renderDataTable({
     geticd9Table()
   }, options = list(scrollX = TRUE, scrollY = "100vh", paging = FALSE, processing = FALSE))
-  
 })

@@ -2,14 +2,52 @@ library(RMySQL)
 library(choroplethr)
 library(ggplot2)
 library(gridExtra)
+data(state)
+
+aggregateToState <- function(data) {
+  stateCode <- unique(substr(data[, 1], 1, 2))
+  # initialize another df of 51 rows and same # of cols
+  stateNames <- tolower(append(state.name, 'District of Columbia', which(state.name == 'Delaware')))
+  df <- cbind(tolower(stateNames), data[, -1][1:length(stateCode), ])
+  names(df) <- c('state', names(data)[-1])
+  # all counties in the same state start with the same two digits in their FIPS code
+  # ranges from 01 to 56 but some numbers are skipped like 03.
+  df[, -1] <- t(sapply(1:length(stateCode), function(i) {
+    sapply(2:dim(df)[2], function(j) {
+      state <- which(substr(data[, 1], 1, 2) == stateCode[i])
+      if (substr(names(df)[j], 1, 3) == 'pop') {
+        sum(data[state, j]) 
+      } else if (substr(names(df)[j], 1, 3) == 'med') {
+        median(getMedianList(data[state, j], data[state, paste0('population', substr(names(df)[j], nchar(names(df)[j]) - 3, nchar(names(df)[j])))]))
+      } else {
+        getWeighted(data[state, j], data[state, paste0('population', substr(names(df)[j], nchar(names(df)[j]) - 3, nchar(names(df)[j])))])
+      }
+    })
+  }))
+  df[, 1] <- as.character(df[, 1])
+  df[, 2] <- as.numeric(df[, 2])
+  return(df)
+}
+
+getMedianList <- function(data, pop) {
+  do.call('c', lapply(1:length(data), function(i) {
+    rep(data[i], pop[i])
+  }))
+}
+
+getWeighted <- function(data, pop) {
+  list <- sapply(1:length(data), function(i) {
+    data[i] * pop[i]
+  })
+  return(sum(list) / sum(pop))
+}
 
 # external file because function is non-reactive
-plotMap <- function(string, data, title, buckets, legend) {
-  df <- as.data.frame(cbind(data$county, data[, string]))
+plotMap <- function(string, data, title, buckets, detail, legend) {
+  df <- as.data.frame(cbind(data[, 1], data[, string]))
   names(df) <- c("region", "value")
   # remove leading zeros from FIP codes
   # choropleth requires numeric column type in dataframe
-  df$region <- as.numeric(sapply(df$region, function(y) sub('^0+([1-9])', '\\1', y)))
   df$value <- as.numeric(as.character(df$value))
   legendLabels <- getLabels(buckets)
   df$value <- factor(sapply(df$value, function(y) {
@@ -29,23 +67,27 @@ plotMap <- function(string, data, title, buckets, legend) {
                                   y <- legendLabels[7]
                                 }))
   # additional customizations require creating a CountyChoropleth object, not using the county_choropleth() method
-  map <- CountyChoropleth$new(df)
+  if (detail == 'County') {
+    map <- CountyChoropleth$new(df)
+  }
+  if (detail == 'State') {
+    df[, 1] <- as.character(df[, 1])
+    map <- StateChoropleth$new(df)
+  }
   map$title <- title
   
   if (string == 'red2000' || string == 'red2008' || string == 'red2010') {
-    map$ggplot_scale = scale_fill_brewer(name=NULL, labels = legendLabels, palette="Reds", drop=FALSE, guide = FALSE)
+    map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Reds", drop=FALSE, guide = FALSE)
     if (legend == 'legendandmap' || legend == 'legendonly') {
       map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Reds", drop=FALSE)
     }
-  }
-  if (string == 'blue' || string == 'blue2008' || string == 'blue2010') {
-    map$ggplot_scale = scale_fill_brewer(name=NULL, labels = legendLabels, palette="Blues", drop=FALSE, guide = FALSE)
+  } else if (string == 'blue2000' || string == 'blue2008' || string == 'blue2010') {
+    map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Blues", drop=FALSE, guide = FALSE)
     if (legend == 'legendandmap' || legend == 'legendonly') {
       map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Blues", drop=FALSE)
     }
-  }
-  else {
-    map$ggplot_scale = scale_fill_brewer(name=NULL, labels = legendLabels, palette="Greens", drop=FALSE, guide = FALSE)
+  } else {
+    map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Greens", drop=FALSE, guide = FALSE)
     if (legend == 'legendandmap' || legend == 'legendonly') {
       map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Greens", drop=FALSE)
     }
@@ -55,6 +97,7 @@ plotMap <- function(string, data, title, buckets, legend) {
 
 renderMap <- function(map, legend) {
   if (legend == "legendonly") {
+    # make legend spread out
     tmp <- ggplot_gtable(ggplot_build(map$render() + guides(fill=guide_legend(nrow = 2))))
     # usually value of 8
     leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
@@ -97,22 +140,56 @@ getLabels <- function(buckets) {
   return(y)
 }
 
-plotDiffMap <- function(param1, param2, data, title) {
-  df <- as.data.frame(cbind(data$county, abs(data[, param2] - data[, param1])))
+plotDiffMap <- function(param1, param2, data, title, buckets, detail, legend) {
+  df <- as.data.frame(cbind(data[,1], abs(data[, param2] - data[, param1])))
   names(df) <- c("region", "value")
   # remove leading zeros from FIP codes
   # choropleth requires numeric column type in dataframe
-  df$region <- as.numeric(sapply(df$region, function(y) sub('^0+([1-9])', '\\1', y)))
   df$value <- as.numeric(as.character(df$value))
+  legendLabels <- getLabels(buckets)
+  df$value <- factor(sapply(df$value, function(y) {
+    if (y <= buckets[1])
+      y <- legendLabels[1]
+    else if (y <= buckets[2])
+      y <- legendLabels[2]
+    else if (y <= buckets[3])
+      y <- legendLabels[3]
+    else if (y <= buckets[4])
+      y <- legendLabels[4]
+    else if (y <= buckets[5])
+      y <- legendLabels[5]
+    else if (y <= buckets[6])
+      y <- legendLabels[6]
+    else
+      y <- legendLabels[7]
+  }))
+  
   # additional customizations require creating a CountyChoropleth object, not using the county_choropleth() method
-  map <- CountyChoropleth$new(df)
+  if (detail == 'County') {
+    map <- CountyChoropleth$new(df)
+  }
+  if (detail == 'State') {
+    df[, 1] <- as.character(df[, 1])
+    map <- StateChoropleth$new(df)
+  }
   map$title = title
-  map$ggplot_scale = scale_fill_brewer(name=NULL, palette="Greens", drop=FALSE)
-  if (string == 'red')
-    map$ggplot_scale = scale_fill_brewer(name=NULL, palette="Reds", drop=FALSE)
-  if (string == 'blue')
-    map$ggplot_scale = scale_fill_brewer(name=NULL, palette="Blues", drop=FALSE)
-  return(map)
+  if (param1 == 'red2000' || param1 == 'red2008' || param1 == 'red2010') {
+    map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Reds", drop=FALSE, guide = FALSE)
+    if (legend == 'legendandmap' || legend == 'legendonly') {
+      map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Reds", drop=FALSE)
+    }
+  } else if (param1 == 'blue2000' || param1 == 'blue2008' || param1 == 'blue2010') {
+    map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Blues", drop=FALSE, guide = FALSE)
+    if (legend == 'legendandmap' || legend == 'legendonly') {
+      map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Blues", drop=FALSE)
+    }
+  } else {
+    map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Greens", drop=FALSE, guide = FALSE)
+    if (legend == 'legendandmap' || legend == 'legendonly') {
+      map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette="Greens", drop=FALSE)
+    }
+  }
+  renderMap(map, legend)
 }
 
 
