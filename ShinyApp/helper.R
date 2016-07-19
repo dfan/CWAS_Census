@@ -51,21 +51,21 @@ plotMap <- function(string, data, title, buckets, detail, legend) {
   df$value <- as.numeric(as.character(df$value))
   legendLabels <- getLabels(buckets)
   df$value <- factor(sapply(df$value, function(y) {
-                                if (y <= buckets[1])
-                                  y <- legendLabels[1]
-                                else if (y <= buckets[2])
-                                  y <- legendLabels[2]
-                                else if (y <= buckets[3])
-                                  y <- legendLabels[3]
-                                else if (y <= buckets[4])
-                                  y <- legendLabels[4]
-                                else if (y <= buckets[5])
-                                  y <- legendLabels[5]
-                                else if (y <= buckets[6])
-                                  y <- legendLabels[6]
-                                else
-                                  y <- legendLabels[7]
-                                }))
+    if (y <= buckets[1])
+      y <- legendLabels[1]
+    else if (y <= buckets[2])
+      y <- legendLabels[2]
+    else if (y <= buckets[3])
+      y <- legendLabels[3]
+    else if (y <= buckets[4])
+      y <- legendLabels[4]
+    else if (y <= buckets[5])
+      y <- legendLabels[5]
+    else if (y <= buckets[6])
+      y <- legendLabels[6]
+    else
+      y <- legendLabels[7]
+  }))
   # additional customizations require creating a CountyChoropleth object, not using the county_choropleth() method
   if (detail == 'County') {
     map <- CountyChoropleth$new(df)
@@ -127,15 +127,15 @@ getBuckets <- function(data1, data2, data3) {
 
 getLabels <- function(buckets) {
   y <- c(
-         paste0('[0 to ', format(buckets[1], big.mark=","), ')', sep=""),
-         paste0('[', format(buckets[1],  big.mark=","), ' to ', format(buckets[2], big.mark = ","), ')'),
-         paste0('[', format(buckets[2], big.mark=","), ' to ', format(buckets[3], big.mark = ","), ')'),
-         paste0('[', format(buckets[3],  big.mark=","), ' to ', format(buckets[4], big.mark = ","), ')'),
-         paste0('[', format(buckets[4],  big.mark=","), ' to ', format(buckets[5], big.mark = ","), ')'),
-         paste0('[', format(buckets[5],  big.mark=","), ' to ', format(buckets[6], big.mark = ","), ')'),
-         paste0('[', format(buckets[6],  big.mark=","), ' to ', format(buckets[7], big.mark = ","), ']')
-        )
-
+    paste0('[0 to ', format(buckets[1], big.mark=","), ')', sep=""),
+    paste0('[', format(buckets[1],  big.mark=","), ' to ', format(buckets[2], big.mark = ","), ')'),
+    paste0('[', format(buckets[2], big.mark=","), ' to ', format(buckets[3], big.mark = ","), ')'),
+    paste0('[', format(buckets[3],  big.mark=","), ' to ', format(buckets[4], big.mark = ","), ')'),
+    paste0('[', format(buckets[4],  big.mark=","), ' to ', format(buckets[5], big.mark = ","), ')'),
+    paste0('[', format(buckets[5],  big.mark=","), ' to ', format(buckets[6], big.mark = ","), ')'),
+    paste0('[', format(buckets[6],  big.mark=","), ' to ', format(buckets[7], big.mark = ","), ']')
+  )
+  
   #y <- factor(y, labels = y, ordered = TRUE)
   return(y)
 }
@@ -197,29 +197,29 @@ addStatCol <- function(string, data, pop1, pop2) {
   if (string == 'Binomial Exact') {
     data[, string] <- sapply(1:length(data[, 1]), 
                              function(i) {
-                                            # ceiling to force whole number
-                                            if (data[i,2] != 0 & data[i,3] != 0) {
-                                              binom.test(ceiling(data[i,2] * pop2[i]), pop2[i], data[i,3], alternative="two.sided")$p.value
-                                            } else {
-                                            return(1.0)
-                                            }
-                                         }
-                            )
+                               # ceiling to force whole number
+                               if (data[i,2] != 0 & data[i,3] != 0) {
+                                 binom.test(ceiling(data[i,2] * pop2[i]), pop2[i], data[i,3], alternative="two.sided")$p.value
+                               } else {
+                                 return(1.0)
+                               }
+                             }
+    )
     data <- data[order(data[, string], decreasing = FALSE), ]
   }
   if (string == 'Chi-squared') {
     data[, string] <- sapply(1:length(data[, 1]),
                              function(i) {
-                                            if (data[i,2] != 0 & data[i,3] != 0) {
-                                              obs <- c(ceiling(data[i,3] * pop2[i]), ceiling((1 - data[i,3]) * pop2[i]))
-                                              # ceiling to force whole number
-                                              exp <- c(ceiling(data[i,2] * pop2[i]), ceiling((1 - data[i,2]) * pop2[i]))
-                                              table <- as.data.frame(rbind(obs, exp))
-                                              names(table) <- c('Has', 'Not Has')
-                                              chisq.test(table)$p.value
-                                            } else {
-                                              return(1.0)
-                                            }
+                               if (data[i,2] != 0 & data[i,3] != 0) {
+                                 obs <- c(ceiling(data[i,3] * pop2[i]), ceiling((1 - data[i,3]) * pop2[i]))
+                                 # ceiling to force whole number
+                                 exp <- c(ceiling(data[i,2] * pop2[i]), ceiling((1 - data[i,2]) * pop2[i]))
+                                 table <- as.data.frame(rbind(obs, exp))
+                                 names(table) <- c('Has', 'Not Has')
+                                 chisq.test(table)$p.value
+                               } else {
+                                 return(1.0)
+                               }
                              })
     data <- data[order(data[, string], decreasing = FALSE), ]
   }
@@ -228,7 +228,7 @@ addStatCol <- function(string, data, pop1, pop2) {
                              function(i) {
                                if (data[i,2] != 0 & data[i,3] != 0 & pop1[i] != 0 & pop2[i] != 0) {
                                  # assume independence. disable Yates correction
-                                   z.test(data[i,2], data[i,3], (data[i,2] * pop1[i] + data[i,3] * pop2[i]) / (pop1[i] + pop2[i]), pop1[i], pop2[i])
+                                 z.test(data[i,2], data[i,3], (data[i,2] * pop1[i] + data[i,3] * pop2[i]) / (pop1[i] + pop2[i]), pop1[i], pop2[i])
                                } else {
                                  return(1.0)
                                }

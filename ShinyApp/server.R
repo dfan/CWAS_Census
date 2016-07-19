@@ -26,7 +26,7 @@ shinyServer(function(input, output, session) {
   getTotal <- reactive({
     return (as.numeric(input$total))
   })
-
+  
   getNumCols <- reactive({
     return (as.numeric(input$cols))
   })
@@ -144,20 +144,20 @@ shinyServer(function(input, output, session) {
       legend <- 'legendandmap'
     
     plotList <<- lapply(1:getTotal(), function(x) {
-        if (input$difference) {
-          values$i <- values$i + 1
-          plotDiffMap(get(paste0('getParam', values$i, 'a'))(), get(paste0('getParam', values$i , 'b'))(), data, paste("USA Colored by Difference in", get(paste0('getParam', values$i, 'a'))(), 'and', get(paste0('getParam', values$i, 'b'))()), getBuckets(data[, get(paste0('getParam', values$i, 'a'))()], data[, get(paste0('getParam', values$i, 'b'))()], data3), getDetail(), legend)$render()
-        } else if (!input$difference) {
-          # order matters; value line goes first
-          values$i <- values$i + 1
-          plotMap(get(paste0('getParam', values$i, 'a'))(), data, paste("USA Colored by", get(paste0('getParam', values$i , 'a'))()), getBuckets(data[, get(paste0('getParam', values$i, 'a'))()], data2, data3), getDetail(), legend)$render()
-        }
-      })
-      return(plotList)
+      if (input$difference) {
+        values$i <- values$i + 1
+        plotDiffMap(get(paste0('getParam', values$i, 'a'))(), get(paste0('getParam', values$i , 'b'))(), data, paste("USA Colored by Difference in", get(paste0('getParam', values$i, 'a'))(), 'and', get(paste0('getParam', values$i, 'b'))()), getBuckets(abs(data[, get(paste0('getParam', values$i, 'a'))()] - data[, get(paste0('getParam', values$i, 'b'))()]), data2, data3), getDetail(), legend)$render()
+      } else if (!input$difference) {
+        # order matters; value line goes first
+        values$i <- values$i + 1
+        plotMap(get(paste0('getParam', values$i, 'a'))(), data, paste("USA Colored by", get(paste0('getParam', values$i , 'a'))()), getBuckets(data[, get(paste0('getParam', values$i, 'a'))()], data2, data3), getDetail(), legend)$render()
+      }
+    })
+    return(plotList)
   })
   
   plotLegend <- eventReactive(input$action, {
-    values <- reactiveValues(i = 0)
+   # values <- reactiveValues(i = 0)
     if (input$whichMapData == 'Plot by census data') {
       if (input$detailLevel == 'County') {
         data <- dataCombined
@@ -175,12 +175,13 @@ shinyServer(function(input, output, session) {
       data2 <- data[, getParam2a()]
     if (getParam3a() != 'None')
       data3 <- data[, getParam3a()]
-    if (input$difference)
-      plotDiffMap(getParam1a(), getParam1b(), data, paste("USA Colored by Difference in", getParam1a(), 'and', getParam1b()), getDetail(), 'legendonly')
-    if (!input$difference)
+    if (input$difference) {
+      plotDiffMap(getParam1a(), getParam1b(), data, paste("USA Colored by Difference in", getParam1a(), 'and', getParam1b()), getBuckets(abs(data[, getParam1a()] - data[, getParam1b()]), data2, data3), getDetail(), 'legendonly')
+    } else if (!input$difference) {
       plotMap(getParam1a(), data, paste("USA Colored by", getParam1a()), getBuckets(data[, getParam1a()], data2, data3), getDetail(), 'legendonly')
+    }
   })
-
+  
   output$allmaps <- renderPlot({
     do.call("grid.arrange", c(plotObjects(), ncol=getNumCols(), nrow = ceiling(getTotal() / getNumCols())))
   })
@@ -197,18 +198,18 @@ shinyServer(function(input, output, session) {
     # isolate mapType value update so that reactive dependencies don't override the isolated go button
     input$action
     isolate(total <- getTotal())
-
+    
     column(12, align = "center", 
-        fluidRow(
-          # think about aspect ratios (width adjusts pretty well but height is weird)
-          column(12, align = "center", plotOutput("allmaps", width = '100%'))
-        ),
-      fluidRow(
-        column(12, align = "center", plotOutput("legend", width = '100%', height = 75))
-      )
+           fluidRow(
+             # think about aspect ratios (width adjusts pretty well but height is weird)
+             column(12, align = "center", plotOutput("allmaps", width = '100%'))
+           ),
+           fluidRow(
+             column(12, align = "center", plotOutput("legend", width = '100%', height = 75))
+           )
     )
   })
-   
+  
   ### for second panel ###
   output$table <- renderDataTable({
     if (input$useData == 'Sort table by census data') {
@@ -216,7 +217,7 @@ shinyServer(function(input, output, session) {
     } else if (input$useData == 'Sort table by user data') {
       data <- readTable()
     } else {
-    # avoid error message when "None" is selected but files are uploaded
+      # avoid error message when "None" is selected but files are uploaded
       return(NULL)
     }
     data <- as.data.frame(cbind(data$county, data[, input$sort1By], data[, input$sort2By]))
@@ -254,76 +255,16 @@ shinyServer(function(input, output, session) {
     a
   })
   
-  output$map1Selection1 <- renderUI({
-    selectInput("variable1a", "Map 1:", getMapCols())
+  output$mapselection1 <- renderUI({
+    lapply(1:(2 + getTotal()), function(i) {
+      selectInput(paste0('variable', i, 'a'), paste0('Map ', i), getMapCols())
+    })
   })
   
-  output$map1Selection2 <- renderUI({
-    selectInput("variable1b", "Map 1:", getMapCols())
-  })
-  
-  output$map2Selection1 <- renderUI({
-    selectInput("variable2a", "Map 2:", getMapCols())
-  })
-  
-  output$map2Selection2 <- renderUI({
-    selectInput("variable2b", "Map 2:", getMapCols())
-  })
-  
-  output$map3Selection1 <- renderUI({
-    selectInput("variable3a", "Map 3:", getMapCols())
-  })
-  
-  output$map3Selection2 <- renderUI({
-    selectInput("variable3b", "Map 3:", getMapCols())
-  })
-  
-  output$map4Selection1 <- renderUI({
-    selectInput("variable4a", "Map 4:", getMapCols())
-  })
-  
-  output$map4Selection2 <- renderUI({
-    selectInput("variable4b", "Map 4:", getMapCols())
-  })
-  
-  output$map5Selection1 <- renderUI({
-    selectInput("variable5a", "Map 5:", getMapCols())
-  })
-  
-  output$map5Selection2 <- renderUI({
-    selectInput("variable5b", "Map 5:", getMapCols())
-  })
-  
-  output$map6Selection1 <- renderUI({
-    selectInput("variable6a", "Map 6:", getMapCols())
-  })
-  
-  output$map6Selection2 <- renderUI({
-    selectInput("variable6b", "Map 6:", getMapCols())
-  })
-  
-  output$map7Selection1 <- renderUI({
-    selectInput("variable7a", "Map 7:", getMapCols())
-  })
-  
-  output$map7Selection2 <- renderUI({
-    selectInput("variable7b", "Map 7:", getMapCols())
-  })
-  
-  output$map8Selection1 <- renderUI({
-    selectInput("variable8a", "Map 8:", getMapCols())
-  })
-  
-  output$map8Selection2 <- renderUI({
-    selectInput("variable8b", "Map 8:", getMapCols())
-  })
-  
-  output$map9Selection1 <- renderUI({
-    selectInput("variable9a", "Map 9:", getMapCols())
-  })
-  
-  output$map9Selection2 <- renderUI({
-    selectInput("variable9b", "Map 9:", getMapCols())
+  output$mapselection2 <- renderUI({
+    lapply(1:(2 + getTotal()), function(i) {
+      selectInput(paste0('variable', i, 'b'), paste0('Map ', i), getMapCols())
+    })
   })
   
   output$table1List <- renderUI({

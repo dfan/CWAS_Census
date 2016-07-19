@@ -49,42 +49,25 @@ shinyUI(fluidPage( #pageWithSidebar
             )
           ),
         
-          column(width = 5,
-            column(width = 6,
-              uiOutput("map1Selection1"),
-              uiOutput("map2Selection1"),
-              uiOutput("map3Selection1"),
-              uiOutput("map4Selection1"),
-              uiOutput("map5Selection1"),
-              uiOutput("map6Selection1"),
-              uiOutput("map7Selection1"),
-              uiOutput("map8Selection1"),
-              uiOutput("map9Selection1"),
+          column(width = 9,
+             column(width = 4,
+                    column(width = 12,
+                           fluidRow(selectInput("total", "Total Plots", list("1" = "1", "2" = "2", "3" = "3", "4" = "4", "5" = "5", "6" = "6", "7" = "7", "8" = "8", "9" = "9"), width = "100%")),
+                           fluidRow(selectInput("cols", "Columns", list("1" = "1", "2" = "2", "3" = "3"), width = "100%")),
+                           fluidRow(selectInput("detailLevel", "Level of Detail:", list("None" = "None", "Zip Code" = "Zip Code", "County" = "County", "State" = "State"))),
+                           fluidRow(actionButton("action", "Go!", width = "100%", icon("paper-plane"), 
+                                                 style="color: #fff; background-color: #337ab7; border-color: #2e6da4"))
+                    )
+             ),
+            column(width = 4,
+              uiOutput("mapselection1"),
               checkboxInput('difference', 'Plot by Difference', FALSE)
             ),
-            column(width = 6,
+            column(width = 4,
               conditionalPanel("input.difference", 
-                uiOutput("map1Selection2"),
-                uiOutput("map2Selection2"),
-                uiOutput("map3Selection2"),
-                uiOutput("map4Selection2"),
-                uiOutput("map5Selection2"),
-                uiOutput("map6Selection2"),
-                uiOutput("map7Selection2"),
-                uiOutput("map8Selection2"),
-                uiOutput("map9Selection2")
+                uiOutput("mapselection2")
               )
             )
-          ),
-          
-          column(width = 4,
-                 column(width = 12,
-                   fluidRow(selectInput("total", "Total Plots", list("1" = "1", "2" = "2", "3" = "3", "4" = "4", "5" = "5", "6" = "6", "7" = "7", "8" = "8", "9" = "9"), width = "100%")),
-                   fluidRow(selectInput("cols", "Columns", list("1" = "1", "2" = "2", "3" = "3"), width = "100%")),
-                   fluidRow(selectInput("detailLevel", "Level of Detail:", list("None" = "None", "Zip Code" = "Zip Code", "County" = "County", "State" = "State"))),
-                   fluidRow(actionButton("action", "Go!", width = "100%", icon("paper-plane"), 
-                            style="color: #fff; background-color: #337ab7; border-color: #2e6da4"))
-                 )
           )
         )
       )
