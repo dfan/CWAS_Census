@@ -109,20 +109,12 @@ renderMap <- function(map, legend) {
   }
 }
 
-getBuckets <- function(data1, data2, data3) {
-  if (!is.null(data2) & !is.null(data3)) {
-    if (class(data1) == 'integer' && class(data2) == 'integer' && class(data3) == 'integer')
-      return(floor(quantile(cbind(data1,data2,data3), c(1/7.0, 2/7.0, 3/7.0, 4/7.0, 5/7.0, 6/7.0, 1.0))))
-    return(round(quantile(cbind(data1,data2,data3), c(1/7.0, 2/7.0, 3/7.0, 4/7.0, 5/7.0, 6/7.0, 1.0)), 5))
+getBuckets <- function(dataList) {
+  dataTypes <- sapply(dataList, function(x) class(x))
+  if (length(which(dataTypes == 'integer')) == length(dataTypes)) {
+    return(floor(quantile(dataList, c(1/7.0, 2/7.0, 3/7.0, 4/7.0, 5/7.0, 6/7.0, 1.0))))
   }
-  if (!is.null(data2) & is.null(data3)) {
-    if (class(data1) == 'integer' && class(data2) == 'integer')
-      return(floor(quantile(cbind(data1,data2), c(1/7.0, 2/7.0, 3/7.0, 4/7.0, 5/7.0, 6/7.0, 1.0))))
-    return(round(quantile(cbind(data1,data2), c(1/7.0, 2/7.0, 3/7.0, 4/7.0, 5/7.0, 6/7.0, 1.0)), 5))
-  }
-  if (class(data1) != 'integer')
-    return(round(quantile(data1, c(1/7.0, 2/7.0, 3/7.0, 4/7.0, 5/7.0, 6/7.0, 1.0)), 5))
-  return(floor(quantile(data1, c(1/7.0, 2/7.0, 3/7.0, 4/7.0, 5/7.0, 6/7.0, 1.0))))
+  return(round(quantile(dataList, c(1/7.0, 2/7.0, 3/7.0, 4/7.0, 5/7.0, 6/7.0, 1.0)), 5))
 }
 
 getLabels <- function(buckets) {

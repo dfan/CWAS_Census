@@ -111,12 +111,32 @@ shinyServer(function(input, output, session) {
     return (input$variable9b)
   })
   
-  
   # height parameter in plotOuput doesn't work when you do arithmetic.. even tho the number is rendered
   getHeight <- reactive(
     return (floor((session$clientData$output_map1_height * 0.1)))
     # return (session$clientData[[paste0('output_', 'map1', '_height')]])
   )
+  
+  bucketData <- reactive({
+    if (input$whichMapData == 'Plot by census data') {
+      if (input$detailLevel == 'County') {
+        data <- dataCombined
+      } else if (input$detailLevel == 'State') {
+        data <- dataState
+      }
+    }
+    if (input$whichMapData == 'Plot by user data') {
+      data <- readTable()
+    }
+    list <- sapply(1:getTotal(), function(i) {
+      if (!input$difference) {
+        data[, get(paste0('getParam', i, 'a'))()]
+      } else if (input$difference) {
+        abs(data[, get(paste0('getParam', i, 'a'))()] - data[, get(paste0('getParam', i, 'b'))()])
+      }
+    })
+    return(list)
+  })
   
   # isolate -> dependency on go button
   plotObjects <- eventReactive(input$action, {
@@ -146,11 +166,11 @@ shinyServer(function(input, output, session) {
     plotList <<- lapply(1:getTotal(), function(x) {
       if (input$difference) {
         values$i <- values$i + 1
-        plotDiffMap(get(paste0('getParam', values$i, 'a'))(), get(paste0('getParam', values$i , 'b'))(), data, paste("USA Colored by Difference in", get(paste0('getParam', values$i, 'a'))(), 'and', get(paste0('getParam', values$i, 'b'))()), getBuckets(abs(data[, get(paste0('getParam', values$i, 'a'))()] - data[, get(paste0('getParam', values$i, 'b'))()]), data2, data3), getDetail(), legend)$render()
+        plotDiffMap(get(paste0('getParam', values$i, 'a'))(), get(paste0('getParam', values$i , 'b'))(), data, paste("USA Colored by Difference in", get(paste0('getParam', values$i, 'a'))(), 'and', get(paste0('getParam', values$i, 'b'))()), getBuckets(bucketData()), getDetail(), legend)$render()
       } else if (!input$difference) {
         # order matters; value line goes first
         values$i <- values$i + 1
-        plotMap(get(paste0('getParam', values$i, 'a'))(), data, paste("USA Colored by", get(paste0('getParam', values$i , 'a'))()), getBuckets(data[, get(paste0('getParam', values$i, 'a'))()], data2, data3), getDetail(), legend)$render()
+        plotMap(get(paste0('getParam', values$i, 'a'))(), data, paste("USA Colored by", get(paste0('getParam', values$i , 'a'))()), getBuckets(bucketData()), getDetail(), legend)$render()
       }
     })
     return(plotList)
@@ -176,9 +196,9 @@ shinyServer(function(input, output, session) {
     if (getParam3a() != 'None')
       data3 <- data[, getParam3a()]
     if (input$difference) {
-      plotDiffMap(getParam1a(), getParam1b(), data, paste("USA Colored by Difference in", getParam1a(), 'and', getParam1b()), getBuckets(abs(data[, getParam1a()] - data[, getParam1b()]), data2, data3), getDetail(), 'legendonly')
+      plotDiffMap(getParam1a(), getParam1b(), data, paste("USA Colored by Difference in", getParam1a(), 'and', getParam1b()), getBuckets(bucketData()), getDetail(), 'legendonly')
     } else if (!input$difference) {
-      plotMap(getParam1a(), data, paste("USA Colored by", getParam1a()), getBuckets(data[, getParam1a()], data2, data3), getDetail(), 'legendonly')
+      plotMap(getParam1a(), data, paste("USA Colored by", getParam1a()), getBuckets(bucketData()), getDetail(), 'legendonly')
     }
   })
   
