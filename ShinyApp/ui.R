@@ -50,7 +50,7 @@ shinyUI(fluidPage( #pageWithSidebar
           ),
         
           column(width = 9,
-             column(width = 4,
+             column(width = 3,
                     column(width = 12,
                            fluidRow(selectInput("total", "Total Plots", list("1" = "1", "2" = "2", "3" = "3", "4" = "4", "5" = "5", "6" = "6", "7" = "7", "8" = "8", "9" = "9"), width = "100%")),
                            fluidRow(selectInput("cols", "Columns", list("1" = "1", "2" = "2", "3" = "3"), width = "100%")),
@@ -59,14 +59,17 @@ shinyUI(fluidPage( #pageWithSidebar
                                                  style="color: #fff; background-color: #337ab7; border-color: #2e6da4"))
                     )
              ),
-            column(width = 4,
+            column(width = 3,
               uiOutput("mapselection1"),
               checkboxInput('difference', 'Plot by Difference', FALSE)
             ),
-            column(width = 4,
+            column(width = 3,
               conditionalPanel("input.difference", 
                 uiOutput("mapselection2")
               )
+            ),
+            column(width = 3,
+              uiOutput("colorselection")
             )
           )
         )
