@@ -4,9 +4,30 @@ shinyUI(fluidPage( #pageWithSidebar
   
   # Application title
   #headerPanel("US Census 2000/2010"),
-  
+  #'shiny-plot-output shiny-bound-output'
+  #'# document.getElementById('allmaps').style.height = '100vh';
+  #'
+  #$(document).ready(function(){
+    #$('body').find('shiny-plot-output shiny-bound-output');
+   # $('body').find('div [class = col-sm-12]').addClass('allmaps'); 
+  #})
+  #includeHTML("script.js"),
+  #console.log(message);
+  #$('#allmaps').css('height', message);
+  #$('#maps').css('height', message);
   tags$head(
-    tags$style("#map3{height:95vh !important;}"),
+    tags$script(
+      HTML("
+        Shiny.addCustomMessageHandler('resize', function(message) {
+          $('#allmaps').css('height', message);
+          $('#maps').css('height', message);
+        });
+      
+      ")
+    ),
+    tags$style("#allmaps{height:100vh !important;}"),
+    #tags$style("$maps{height:calc(100 + vh) !important;}"),
+    #tags$style("$legend{height:100vh !important;}"),
     #gets rid of weird small shift when you click go and the scrollbar disappears
     tags$style(type="text/css", "body { overflow-y: scroll; }")
   ),
@@ -15,7 +36,6 @@ shinyUI(fluidPage( #pageWithSidebar
   
   # Sidebar with controls to select the variable to plot against mpg
   # and to specify whether outliers should be included
-  
   sidebarLayout(
     # each time show/hide is clicked, counter increments by 1
     conditionalPanel("input.showpanel % 2 == 0",
@@ -35,7 +55,7 @@ shinyUI(fluidPage( #pageWithSidebar
                                     c(Comma=',',
                                       Semicolon=';',
                                       Tab='\t'), 
-                                    ',')
+                                    '\t')
                 ),
                 column(width = 6, style='padding:0px;',
                        radioButtons('quote', 'Quote',
@@ -115,5 +135,6 @@ shinyUI(fluidPage( #pageWithSidebar
             )
     )
   )
+  
 ))
 

@@ -1,16 +1,57 @@
 library(RMySQL)
 library(choroplethr)
+library(choroplethrMaps)
 library(ggplot2)
 library(gridExtra)
+library(grid)
+library(maps)
 data(state)
+data(state.regions)
 
 ##########################
 ### Non-reactive functions
 ##########################
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
 aggregateCensusToState <- function(data, updateProgress = NULL) {
   stateCode <- unique(substr(data[, 1], 1, 2))
   # initialize another df of 51 rows and same # of cols
   stateNames <- tolower(append(state.name, 'District of Columbia', which(state.name == 'Delaware')))
+  # df <- cbind(state.regions$region, data[, -1][1:length(stateCode), ])
   df <- cbind(stateNames, data[, -1][1:length(stateCode), ])
   names(df) <- c('state', names(data)[-1])
   # all counties in the same state start with the same two digits in their FIPS code
@@ -73,6 +114,27 @@ aggregateUsertoCounty <- function(data, zipTable) {
   return(df)
 }
 
+aggregateUserToState <- function(data, updateProgress = NULL) {
+  stateCode <- unique(substr(data[, 1], 1, 2))
+  stateNames <- sapply(stateCode, function(x) state.regions[which(state.regions$fips.character == x), 'region'])
+  df <- cbind(stateNames, data[, -1][1:length(stateNames), ])
+  names(df) <- c('state', names(data)[-1])
+  # all counties in the same state start with the same two digits in their FIPS code
+  # ranges from 01 to 56 but some numbers are skipped like 03.
+  df[, -1] <- t(sapply(1:length(stateCode), function(i) {
+    state <- which(substr(data[, 1], 1, 2) == stateCode[i])
+    if (is.function(updateProgress)) {
+      updateProgress(detail = NULL)
+    }
+    sapply(2:dim(df)[2], function(j) {
+      sum(data[state, j]) 
+    })
+  }))
+  df[, 1] <- as.character(df[, 1])
+  df[, 2] <- as.numeric(df[, 2])
+  return(df)
+}
+
 getMedianList <- function(data, pop) {
   do.call('c', lapply(1:length(data), function(i) {
     rep(data[i], pop[i])
@@ -95,27 +157,22 @@ plotMap <- function(string, type, data, title, color, buckets, detail, legend) {
   # choropleth requires numeric column type in dataframe
   df$value <- as.numeric(as.character(df$value))
   legendLabels <- getLabels(buckets)
-  # so the inequality works (otherwise everything will be less than say 2.3%)
-  if (length(which(buckets %% 1 == 0)) < length(buckets)) {
-    buckets <- buckets / 100
-  }
-  df$value <- factor(sapply(df$value, function(y) {
-    if (y <= buckets[1])
-      y <- legendLabels[1]
-    else if (y <= buckets[2])
-      y <- legendLabels[2]
-    else if (y <= buckets[3])
-      y <- legendLabels[3]
-    else if (y <= buckets[4])
-      y <- legendLabels[4]
-    else if (y <= buckets[5])
-      y <- legendLabels[5]
-    else if (y <= buckets[6])
-      y <- legendLabels[6]
-    else
-      y <- legendLabels[7]
-  }))
-  # additional customizations require creating a CountyChoropleth object, not using the county_choropleth() method
+  # set levels to be sure and INSIDE not afterward or else the values will get changed
+  df$value <- factor(as.character(sapply(df$value, function(y) {
+    if (y <= buckets[1]) {
+      legendLabels[1]
+    } else if (y <= buckets[2]) {
+      legendLabels[2]
+    } else if (y <= buckets[3]) {
+      legendLabels[3]
+    } else if (y <= buckets[4]) {
+      legendLabels[4]
+    } else {
+      legendLabels[5]
+    }
+  })), levels = legendLabels)
+  
+  #additional customizations require creating a CountyChoropleth object, not using the county_choropleth() method
   if (type == 'census') {
     if (detail == 'County') {
       map <- CountyChoropleth$new(df)
@@ -132,8 +189,11 @@ plotMap <- function(string, type, data, title, color, buckets, detail, legend) {
     if (detail == 'County') {
       map <- CountyChoropleth$new(df)
     }
+    if (detail == 'State') {
+      df[, 1] <- as.character(df[, 1])
+      map <- StateChoropleth$new(df)
+    }
   }
-  
   map$title <- title
   map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
   if (legend == 'legendandmap' || legend == 'legendonly') {
@@ -157,34 +217,40 @@ renderMap <- function(map, legend) {
 }
 
 getBuckets <- function(dataList) {
-  if (length(which(dataList %% 1 == 0)) == length(dataList)) {
-    return(floor(quantile(dataList, c(1/7.0, 2/7.0, 3/7.0, 4/7.0, 5/7.0, 6/7.0, 1.0))))
+  # always want 5 buckets
+  # get rid of 0 values (if years differed in counties listed)
+  modifiedList <- dataList[which(dataList != 0)]
+  tempBins <- quantile(modifiedList, sapply(1:5, function(x) x / 5.0))
+  # be careful with absolute difference since it can be negative so you don't want the first bin to be 1 or lower
+  if (length(which(dataList == 1)) > 0 && length(which(dataList < 0)) == 0) {
+    tempBins[1] <- 1
+    modifiedList <- dataList[which(dataList != 1 & dataList != 0)]
+    tempBins[-1] <- quantile(modifiedList, sapply(1:4, function(x) x / 4))
+  }
+  if (length(which(dataList %% 1 == 0)) == length(dataList) && length(unique(tempBins)) == length(tempBins)) {
+    return(floor(tempBins))
   }
   # 2 decimal places
-  return(as.numeric(format(round(quantile(dataList * 100.0, c(1/7.0, 2/7.0, 3/7.0, 4/7.0, 5/7.0, 6/7.0, 1.0)), 2), nsmall = 2)))
+  return(as.numeric(format(round(tempBins, 4), nsmall = 2)))
 }
 
 getLabels <- function(buckets) {
+  y <- rep(0,5)
+  # integers
   if (length(which(buckets %% 1 == 0)) == length(buckets)) {
-    y <- c(
-      paste0(format(buckets[1], big.mark=","), ' or lower'),
-      paste0(format(buckets[1],  big.mark=","), ' to ', format(buckets[2], big.mark = ",")),
-      paste0(format(buckets[2], big.mark=","), ' to ', format(buckets[3], big.mark = ",")),
-      paste0(format(buckets[3],  big.mark=","), ' to ', format(buckets[4], big.mark = ",")),
-      paste0(format(buckets[4],  big.mark=","), ' to ', format(buckets[5], big.mark = ",")),
-      paste0(format(buckets[5],  big.mark=","), ' to ', format(buckets[6], big.mark = ",")),
-      paste0(format(buckets[6],  big.mark=","), ' to ', format(buckets[7], big.mark = ","))
-    )
+    y[1] <- paste0(format(buckets[1], big.mark=","), ' or lower')
+    for (i in 1:4) {
+      if (i < 5 && (buckets[i] + 1) != buckets[i + 1]) {
+        y[i + 1] <- paste0(format(buckets[i] + 1,  big.mark=","), ' to ', format(buckets[i + 1], big.mark = ","))
+      } else {
+        y[i + 1] <- paste0(format(buckets[i] + 1,  big.mark=","))
+      }
+    }
   } else {
-    y <- c(
-      paste0(format(buckets[1], big.mark=","), ' or lower'),
-      paste0(format(buckets[1],  big.mark=","), '% to ', format(buckets[2], big.mark = ","), '%'),
-      paste0(format(buckets[2], big.mark=","), '% to ', format(buckets[3], big.mark = ","), '%'),
-      paste0(format(buckets[3],  big.mark=","), '% to ', format(buckets[4], big.mark = ","), '%'),
-      paste0(format(buckets[4],  big.mark=","), '% to ', format(buckets[5], big.mark = ","), '%'),
-      paste0(format(buckets[5],  big.mark=","), '% to ', format(buckets[6], big.mark = ","), '%'),
-      paste0(format(buckets[6],  big.mark=","), '% to ', format(buckets[7], big.mark = ","), '%')
-    )
+    y[1] <- paste0(format(buckets[1] * 100, big.mark=","), '% or lower')
+    for (i in 2:5) {
+      y[i] <- paste0(format(buckets[i - 1] * 100,  big.mark=","), '% to ', format(buckets[i] * 100, big.mark = ","), '%')
+    }
   }
   #y <- factor(y, labels = y, ordered = TRUE)
   return(y)
@@ -197,26 +263,20 @@ plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detai
   # choropleth requires numeric column type in dataframe
   df$value <- as.numeric(as.character(df$value))
   legendLabels <- getLabels(buckets)
-  # so the inequality works (otherwise everything will be less than say 2.3%)
-  if (length(which(buckets %% 1 == 0)) < length(buckets)) {
-    buckets <- buckets / 100
-  }
-  df$value <- factor(sapply(df$value, function(y) {
-    if (y <= buckets[1])
-      y <- legendLabels[1]
-    else if (y <= buckets[2])
-      y <- legendLabels[2]
-    else if (y <= buckets[3])
-      y <- legendLabels[3]
-    else if (y <= buckets[4])
-      y <- legendLabels[4]
-    else if (y <= buckets[5])
-      y <- legendLabels[5]
-    else if (y <= buckets[6])
-      y <- legendLabels[6]
-    else
-      y <- legendLabels[7]
-  }))
+  # set levels to be sure and INSIDE not afterward or else the values will get changed
+  df$value <- factor(as.character(sapply(df$value, function(y) {
+    if (y <= buckets[1]) {
+      legendLabels[1]
+    } else if (y <= buckets[2]) {
+      legendLabels[2]
+    } else if (y <= buckets[3]) {
+      legendLabels[3]
+    } else if (y <= buckets[4]) {
+      legendLabels[4]
+    } else {
+      legendLabels[5]
+    }
+  })), levels = legendLabels)
   
   # additional customizations require creating a CountyChoropleth object, not using the county_choropleth() method
   if (type == 'census') {
@@ -234,6 +294,10 @@ plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detai
     } 
     if (detail == 'County') {
       map <- CountyChoropleth$new(df)
+    } 
+    if (detail == 'State') {
+      df[, 1] <- as.character(df[,1])
+      map <- StateChoropleth$new(df)
     }
   }
   map$title = title

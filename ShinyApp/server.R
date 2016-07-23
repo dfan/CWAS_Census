@@ -1,5 +1,10 @@
+
 # Define server logic required to output displays
 shinyServer(function(input, output, session) {
+  observeEvent(input$action,{
+    session$sendCustomMessage(type = 'resize', message = paste0(100 * getTotal(), 'vh'))
+  })
+  
   # loading stuff
   withProgress(message = 'Loading...', value = 0.1, {
     # use install.packages("devtools") and install_github('arilamstein/choroplethrZip@v1.3.0', force = TRUE) for zip maps
@@ -27,7 +32,6 @@ shinyServer(function(input, output, session) {
     zipTable <- read.csv('../Data/zcta_county.csv', stringsAsFactors=FALSE, colClasses=c("ZCTA5"="character", "STATE" = "character", "COUNTY" = "character"))
     # for animation purposes
     sapply(seq(from=40, to=80, by=1), function(i) incProgress(0.01, detail = paste0(i, '%')))
-    # takes absurdly long... prevents menu from being loaded immediately
     
     # Create a Progress object
     progress <- shiny::Progress$new()
@@ -38,7 +42,8 @@ shinyServer(function(input, output, session) {
     updateProgress <- function(detail = NULL) {
       progress$inc(amount = 1/n, detail = detail)
     }
-    dataState <- aggregateCensusToState(dataCombined, updateProgress)
+    # takes absurdly long... prevents menu from being loaded immediately
+    #dataState <- aggregateCensusToState(dataCombined, updateProgress)
     
     sapply(seq(from=80, to=100, by=1), function(i) incProgress(0.01, detail = paste0(i, '%')))
     # retain leading zeros for ZCTA5 codes
@@ -63,10 +68,14 @@ shinyServer(function(input, output, session) {
   })
   
   # height parameter in plotOuput doesn't work when you do arithmetic.. even tho the number is rendered
-  getHeight <- reactive(
-    return (floor((session$clientData$output_map1_height * 0.1)))
+  getWidth <- reactive({
+    return (session$clientData$output_allmaps_width)
     # return (session$clientData[[paste0('output_', 'map1', '_height')]])
-  )
+  })
+  
+  getHeight <- reactive({
+    return (session$clientData$output_allmaps_width)
+  })
   
   bucketData <- reactive({
     input$action
@@ -79,7 +88,12 @@ shinyServer(function(input, output, session) {
       }
     }
     if (input$whichMapData == 'Plot by user data') {
-      data <- readTable()
+      raw <- readTable()
+      if (input$detailLevel == 'State') {
+        data <- aggregateUserToState(raw)
+      } else {
+        data <- raw
+      }
     }
     list <- sapply(1:total, function(i) {
       if (!input$difference) {
@@ -125,8 +139,12 @@ shinyServer(function(input, output, session) {
       type <- 'user'
       raw <- readTable()
       if (input$detailLevel == 'County') {
-        data <- aggregateUsertoCounty(raw, zipTable)
+        #data <- aggregateUsertoCounty(raw, zipTable)
+        data <- raw
         data[, 1] <- as.numeric(sapply(data[, 1], function(y) sub('^0+([1-9])', '\\1', y)))
+      } else if (input$detailLevel == 'State') {
+        # leading 0s are removed in aggregate function
+        data <- aggregateUserToState(raw)
       }
     }
     legend <- ''
@@ -136,7 +154,7 @@ shinyServer(function(input, output, session) {
     progress <- shiny::Progress$new()
     progress$set(message = "Plotting...", value = 0)
     on.exit(progress$close())
-    plotList <<- lapply(1:total, function(i) {
+    plotList <- lapply(1:total, function(i) {
       if (input$difference) {
         # needs to be inside for some reason
         progress$inc(1/total, detail = paste("map", i))
@@ -166,21 +184,37 @@ shinyServer(function(input, output, session) {
       type <- 'user'
       raw <- readTable()
       if (input$detailLevel == 'County') {
-        data <- aggregateUsertoCounty(raw, zipTable)
+        #data <- aggregateUsertoCounty(raw, zipTable)
+        data <- raw
+        # get rid of leading zeros
+        data[, 1] <- as.numeric(sapply(data[, 1], function(y) sub('^0+([1-9])', '\\1', y)))
+      } else if (input$detailLevel == 'State') {
+        # leading 0s are removed in aggregate function
+        data <- aggregateUserToState(raw)
       }
     }
     if (input$difference) {
-      plotDiffMap(input[['variable1a']], input[['variable1b']], type, data, paste("USA Colored by Difference in", input[['variable1a']], 'and', input[['variable1b']]), legendColor(), getBuckets(bucketData()), getDetail(), 'legendonly')
+      return(list(plotDiffMap(input[['variable1a']], input[['variable1b']], type, data, paste("USA Colored by Difference in", input[['variable1a']], 'and', input[['variable1b']]), legendColor(), getBuckets(bucketData()), getDetail(), 'legendonly')))
     } else if (!input$difference) {
-      plotMap(input[['variable1a']], type, data, paste("USA Colored by", input[['variable1a']]), legendColor(), getBuckets(bucketData()), getDetail(), 'legendonly')
+      return(list(plotMap(input[['variable1a']], type, data, paste("USA Colored by", input[['variable1a']]), legendColor(), getBuckets(bucketData()), getDetail(), 'legendonly')))
     }
   })
   
+  # http://stackoverflow.com/questions/33250075/get-screen-resolution-from-javascript-in-r-shiny
   output$allmaps <- renderPlot({
     input$action
     isolate(total <- getTotal())
     isolate(col <- getNumCols())
-    do.call("grid.arrange", c(plotObjects(), ncol=col, nrow = ceiling(total / col)))
+    isolate(plotlist <- plotObjects())
+    do.call("grid.arrange", c(plotObjects(), nrow = ceiling(total / col), ncol = col))
+    #g1 <- ggplot(data=iris, aes(x=Sepal.Length, y=Sepal.Width)) + geom_point()
+    #g2 <- ggplot(data=iris, aes(x=Sepal.Length, y=Sepal.Width)) + geom_point()
+    #grid.arrange(g1,g2, ncol = col)
+    
+    #grid.arrange(plotObjects()[[1]], plotObjects()[[2]], ncol = 1, widths = 1)
+    #ggsave(filename = 'test.pdf', plot = do.call("grid.arrange", c(plotObjects(), nrow = ceiling(total / col), ncol = col)))
+    #plot_grid(plotlist = plotObjects(), ncol = col, nrow = ceiling(total / col), labels = 'auto')
+    #grid.draw(arrangeGrob(plotObjects(), ncol = col))
   })
   
   output$legend <- renderPlot({
@@ -188,8 +222,9 @@ shinyServer(function(input, output, session) {
     # legend is fixed size unfortunately in ggplot
     input$action
     isolate(total <- getTotal())
-    if (total > 1)
-      grid.draw(plotLegend())
+    if (total > 1) {
+      do.call('grid.draw', plotLegend())
+    }
   })
   
   # Reactive scope reference: https://shinydata.wordpress.com/2015/02/02/a-few-things-i-learned-about-shiny-and-reactive-programming/
@@ -197,17 +232,81 @@ shinyServer(function(input, output, session) {
     # isolate mapType value update so that reactive dependencies don't override the isolated go button
     input$action
     isolate(total <- getTotal())
-    
+    isolate(col <- getNumCols())
+    isolate(objects <- plotObjects())
+    tags$div(tags$style("#allmaps{height:100vh !important;}"))
+    # splitLayout avoids columns
     column(12, align = "center", 
            fluidRow(
-             # think about aspect ratios (width adjusts pretty well but height is weird)
-             column(12, align = "center", plotOutput("allmaps", width = '100%'))
-           ),
-           fluidRow(
-             column(12, align = "center", plotOutput("legend", width = '100%', height = 75))
+             tagList(
+              column(width = 2, align = 'left', style='padding:0px;', downloadButton('png', 'Download as png')),
+              column(width = 2, align = 'left', style='padding:0px;', downloadButton('pdf', 'Download as pdf')),
+              # can't set width here and in UI or it resolves to 0
+              column(width = 12, align = 'center', plotOutput("allmaps")),
+              column(width = 12, align = 'center', plotOutput("legend", width = '100%', height = 75))
+             )
            )
-    )
+          )
+    
   })
+  
+  output$png <- downloadHandler(
+    filename = "plots.png",
+    content = function(file) {
+      if (getTotal() > 1 && getNumCols() == 1) {
+        png(file, width = 8.5, height = 11, units = "in", res = 400)
+        obj <- do.call("grid.arrange", c(plotObjects(), nrow = ceiling(getTotal() / getNumCols()), ncol = getNumCols()))
+        print(obj)
+        if (getTotal() > 1) {
+          png(file, width = 8.5, height = 11, units = "in", res = 400)
+          # try nested grid.arrange
+          obj <- do.call("grid.arrange", c(plotObjects(), grid.arrange(plotLegend()), nrow = ceiling(getTotal() / getNumCols()), ncol = getNumCols()))
+          print(obj)
+          dev.off()
+        }
+      } else {
+        png(file, width = 11, height = 8.5, units = "in", res = 400)
+        obj <- do.call("grid.arrange", c(plotObjects(), nrow = ceiling(getTotal() / getNumCols()), ncol = getNumCols()))
+        print(obj)
+        if (getTotal() > 1) {
+          png(file, width = 11, height = 8.5, units = "in", res = 400)
+          obj <- do.call("grid.arrange", c(c(plotObjects(), grid.draw(plotLegend())), nrow = ceiling(getTotal() / getNumCols()), ncol = getNumCols()))
+          print(obj)
+          dev.off()
+        }
+      }
+    }
+  )
+  
+  output$pdf <- downloadHandler(
+    filename = 'plots.pdf',
+    content = function(file) {
+      if (getNumCols() == 1) {
+        pdf(file = file, width = 11, height = 8.5)
+        list <- plotObjects()
+        final <- c(list)
+        grid.arrange(grobs = final, ncol = getNumCols(), layout_matrix = matrix(1:getTotal(), byrow = TRUE, nrow = ceiling(getTotal() / getNumCols())))
+        dev.off()
+        if (getTotal() > 1) {
+          pdf(file = file, width = 8.5, height = 11)
+          leg <- plotLegend()
+          final <- c(list, leg)
+          grid.arrange(grobs = final, ncol = getNumCols(), layout_matrix = rbind(matrix(1:getTotal(), byrow = TRUE, nrow = ceiling(getTotal() / getNumCols())), rep(getTotal() + 1, getNumCols())))
+          dev.off()
+        }
+      } else {
+        pdf(file = file, width = 11, height = 8.5)
+        list <- plotObjects()
+        leg <- plotLegend()
+        final <- c(list, leg)
+        # arrangeGrob won't work
+        #do.call('grid.arrange', c(final, layout_matrix = rbind(matrix(1:getTotal(), byrow = TRUE, nrow = ceiling(getTotal() / getNumCols())), rep(getTotal() + 1, getNumCols()))))
+        grid.arrange(grobs = final, ncol = getNumCols(), layout_matrix = rbind(matrix(1:getTotal(), byrow = TRUE, nrow = ceiling(getTotal() / getNumCols())), rep(getTotal() + 1, getNumCols())))
+        #grid.arrange(grid1, plotLegend(), nrow = 2)
+        dev.off()
+      }
+    }
+  )
   
   ### for second panel ###
   output$table <- renderDataTable({
@@ -236,7 +335,10 @@ shinyServer(function(input, output, session) {
       return(NULL)
     } else {
       inFile <- input$file1
-      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote)
+      # first time to get column classes
+      # check.names=FALSE prevents column names from being modified
+      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote, check.names=FALSE)
+      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote, check.names=FALSE, colClasses = c('character', sapply(names(a), function(x) class(a[,x]))[-1]))
     }
     a
   })
@@ -249,7 +351,10 @@ shinyServer(function(input, output, session) {
       return(NULL)
     } else {
       inFile <- input$file1
-      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote)
+      # first time to get column classes
+      # check.names=FALSE prevents column names from being modified
+      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote, check.names=FALSE)
+      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote, check.names=FALSE, colClasses = c('character', sapply(names(a), function(x) class(a[,x]))[-1]))
     }
     a
   })
