@@ -9,6 +9,7 @@ App functionality:
 *  Displays year-by-year comparison for a single variable against all counties, with either census data or data of user's choice
 *  Displays ICD9 rates for user uploaded table
 Below are plots of the USA colored by median income, black population, white population and total population by county.
+Make sure to run devtools::install_github('rstudio/DT') 
 
 ![](Sample Images/Screenshot1.png)
 
