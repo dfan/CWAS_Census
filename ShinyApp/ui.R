@@ -18,14 +18,14 @@ shinyUI(fluidPage( #pageWithSidebar
   tags$head(
     tags$script(
       HTML("
+        $('#col-sm-12').removeClass('#maps');
+        $('#maps').removeClass('#allmaps');
         Shiny.addCustomMessageHandler('resize', function(message) {
-          $('#allmaps').css('height', message);
-          $('#maps').css('height', message);
+          $('#maps').height(message);
         });
-      
       ")
     ),
-    tags$style("#allmaps{height:100vh !important;}"),
+    tags$style("#allmaps{height: 100vh !important;}"),
     #tags$style("$maps{height:calc(100 + vh) !important;}"),
     #tags$style("$legend{height:100vh !important;}"),
     #gets rid of weird small shift when you click go and the scrollbar disappears

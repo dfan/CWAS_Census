@@ -42,7 +42,10 @@ shinyServer(function(input, output, session) {
     updateProgress <- function(detail = NULL) {
       progress$inc(amount = 1/n, detail = detail)
     }
-    # takes absurdly long... prevents menu from being loaded immediately
+    # already aggregated in another file to save time
+    # read once to get column classes
+    dataState <- read.csv('censusState.csv', stringsAsFactors=FALSE, check.names=FALSE)
+    dataState <- read.csv('censusState.csv', stringsAsFactors=FALSE, check.names=FALSE, colClasses = c('character', sapply(names(dataState), function(x) class(dataState[,x]))[-1]))
     #dataState <- aggregateCensusToState(dataCombined, updateProgress)
     
     sapply(seq(from=80, to=100, by=1), function(i) incProgress(0.01, detail = paste0(i, '%')))
@@ -162,7 +165,7 @@ shinyServer(function(input, output, session) {
       } else if (!input$difference) {
         # order matters; value line goes first
         progress$inc(1/total, detail = paste("map", i))
-        plotMap(input[[paste0('variable', i, 'a')]], type, data, paste("USA Colored by", input[[paste0('variable', i, 'a')]]), colorList[i], getBuckets(bucketData()), getDetail(), legend)$render()
+        plotMap(input[[paste0('variable', i, 'a')]], type, data, paste("USA Colored by", input[[paste0('variable', i, 'a')]]), colorList[i], getBuckets(bucketData()), getDetail(), legend, NULL)$render()
       }
     })
     return(plotList)
@@ -196,7 +199,7 @@ shinyServer(function(input, output, session) {
     if (input$difference) {
       return(list(plotDiffMap(input[['variable1a']], input[['variable1b']], type, data, paste("USA Colored by Difference in", input[['variable1a']], 'and', input[['variable1b']]), legendColor(), getBuckets(bucketData()), getDetail(), 'legendonly')))
     } else if (!input$difference) {
-      return(list(plotMap(input[['variable1a']], type, data, paste("USA Colored by", input[['variable1a']]), legendColor(), getBuckets(bucketData()), getDetail(), 'legendonly')))
+      return(list(plotMap(input[['variable1a']], type, data, paste("USA Colored by", input[['variable1a']]), legendColor(), getBuckets(bucketData()), getDetail(), 'legendonly', NULL)))
     }
   })
   
@@ -251,29 +254,31 @@ shinyServer(function(input, output, session) {
   })
   
   output$png <- downloadHandler(
-    filename = "plots.png",
+    filename = 'plots.png',
     content = function(file) {
-      if (getTotal() > 1 && getNumCols() == 1) {
-        png(file, width = 8.5, height = 11, units = "in", res = 400)
-        obj <- do.call("grid.arrange", c(plotObjects(), nrow = ceiling(getTotal() / getNumCols()), ncol = getNumCols()))
-        print(obj)
+      if (getNumCols() == 1) {
+        png(file = file, width = 11, height = 8.5, units = "in", res = 300)
+        list <- plotObjects()
+        final <- c(list)
+        grid.arrange(grobs = final, ncol = getNumCols(), layout_matrix = matrix(1:getTotal(), byrow = TRUE, nrow = ceiling(getTotal() / getNumCols())))
+        dev.off()
         if (getTotal() > 1) {
-          png(file, width = 8.5, height = 11, units = "in", res = 400)
-          # try nested grid.arrange
-          obj <- do.call("grid.arrange", c(plotObjects(), grid.arrange(plotLegend()), nrow = ceiling(getTotal() / getNumCols()), ncol = getNumCols()))
-          print(obj)
+          png(file = file, width = 8.5, height = 11, units = "in", res = 300)
+          leg <- plotLegend()
+          final <- c(list, leg)
+          grid.arrange(grobs = final, ncol = getNumCols(), layout_matrix = rbind(matrix(1:getTotal(), byrow = TRUE, nrow = ceiling(getTotal() / getNumCols())), rep(getTotal() + 1, getNumCols())))
           dev.off()
         }
       } else {
-        png(file, width = 11, height = 8.5, units = "in", res = 400)
-        obj <- do.call("grid.arrange", c(plotObjects(), nrow = ceiling(getTotal() / getNumCols()), ncol = getNumCols()))
-        print(obj)
-        if (getTotal() > 1) {
-          png(file, width = 11, height = 8.5, units = "in", res = 400)
-          obj <- do.call("grid.arrange", c(c(plotObjects(), grid.draw(plotLegend())), nrow = ceiling(getTotal() / getNumCols()), ncol = getNumCols()))
-          print(obj)
-          dev.off()
-        }
+        png(file = file, width = 11, height = 8.5, units = "in", res = 300)
+        list <- plotObjects()
+        leg <- plotLegend()
+        final <- c(list, leg)
+        # arrangeGrob won't work
+        #do.call('grid.arrange', c(final, layout_matrix = rbind(matrix(1:getTotal(), byrow = TRUE, nrow = ceiling(getTotal() / getNumCols())), rep(getTotal() + 1, getNumCols()))))
+        grid.arrange(grobs = final, ncol = getNumCols(), layout_matrix = rbind(matrix(1:getTotal(), byrow = TRUE, nrow = ceiling(getTotal() / getNumCols())), rep(getTotal() + 1, getNumCols())))
+        #grid.arrange(grid1, plotLegend(), nrow = 2)
+        dev.off()
       }
     }
   )

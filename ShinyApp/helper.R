@@ -1,5 +1,6 @@
 library(RMySQL)
 library(choroplethr)
+# for the fips data
 library(choroplethrMaps)
 library(ggplot2)
 library(gridExtra)
@@ -7,45 +8,6 @@ library(grid)
 library(maps)
 data(state)
 data(state.regions)
-
-##########################
-### Non-reactive functions
-##########################
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  library(grid)
-  
-  # Make a list from the ... arguments and plotlist
-  plots <- c(list(...), plotlist)
-  
-  numPlots = length(plots)
-  
-  # If layout is NULL, then use 'cols' to determine layout
-  if (is.null(layout)) {
-    # Make the panel
-    # ncol: Number of columns of plots
-    # nrow: Number of rows needed, calculated from # of cols
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                     ncol = cols, nrow = ceiling(numPlots/cols))
-  }
-  
-  if (numPlots==1) {
-    print(plots[[1]])
-    
-  } else {
-    # Set up the page
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-    
-    # Make each plot, in the correct location
-    for (i in 1:numPlots) {
-      # Get the i,j matrix positions of the regions that contain this subplot
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-      
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
-    }
-  }
-}
 
 aggregateCensusToState <- function(data, updateProgress = NULL) {
   stateCode <- unique(substr(data[, 1], 1, 2))
@@ -135,6 +97,33 @@ aggregateUserToState <- function(data, updateProgress = NULL) {
   return(df)
 }
 
+# only handles absolute values right now
+aggregateToRegion <- function(df) {
+  new_england = c("connecticut", "maine", "massachusetts", "new hampshire", "rhode island", "vermont")
+  middle_atlantic = c("new jersey", "new york", "pennsylvania")
+  east_north_central = c("indiana", "illinois", "michigan", "ohio", "wisconsin")
+  west_north_central = c("iowa", "kansas", "minnesota", "missouri", "nebraska", "north dakota", "south dakota")
+  south_atlantic = c("delaware", "district of columbia", "florida", "georgia", "maryland", "north carolina", "south carolina", "virginia", "west virginia")
+  east_south_central = c("alabama", "kentucky", "mississippi", "tennessee")
+  west_south_central = c("arkansas", "louisiana", "oklahoma", "texas")
+  mountain = c("arizona", "colorado", "idaho", "new mexico", "montana", "utah", "nevada", "wyoming")
+  pacific = c("alaska", "california", "hawaii", "oregon", "washington")
+  regions <- list(new_england, middle_atlantic, east_north_central, west_north_central, south_atlantic, east_south_central, west_south_central, mountain, pacific)
+  df[, -1] <- sapply(2:dim(df)[2], function(i) {
+    col <- df[, i]
+    for (x in 1:length(regions)) {
+      list <- sapply(1:length(regions[[x]]), function(j) {
+        df[which(df[, 1] == regions[[x]][j]), i]
+      })
+      for (k in 1:length(regions[[x]])) {
+        col[which(df[, 1] == regions[[x]][k])] <- sum(list)
+      }
+    }
+    col
+  })
+  df
+}
+
 getMedianList <- function(data, pop) {
   do.call('c', lapply(1:length(data), function(i) {
     rep(data[i], pop[i])
@@ -150,7 +139,7 @@ getWeighted <- function(data, pop) {
 }
 
 # external file because function is non-reactive
-plotMap <- function(string, type, data, title, color, buckets, detail, legend) {
+plotMap <- function(string, type, data, title, color, buckets, detail, legend, zoom) {
   df <- as.data.frame(cbind(data[, 1], data[, string]))
   names(df) <- c("region", "value")
   # remove leading zeros from FIP codes
@@ -167,11 +156,19 @@ plotMap <- function(string, type, data, title, color, buckets, detail, legend) {
       legendLabels[3]
     } else if (y <= buckets[4]) {
       legendLabels[4]
-    } else {
+    } else if (y <= buckets[5]) {
       legendLabels[5]
-    }
-  })), levels = legendLabels)
-  
+    } else if (y <= buckets[6]) {
+      legendLabels[6]
+    } else if (y <= buckets[7]) {
+      legendLabels[7]
+    } else if (y <= buckets[8]) {
+      legendLabels[8]
+    } else {
+      legendLabels[9]
+    } 
+  })), levels = make.unique(legendLabels))
+
   #additional customizations require creating a CountyChoropleth object, not using the county_choropleth() method
   if (type == 'census') {
     if (detail == 'County') {
@@ -187,7 +184,11 @@ plotMap <- function(string, type, data, title, color, buckets, detail, legend) {
       map <- ZipChoropleth$new(df)
     } 
     if (detail == 'County') {
-      map <- CountyChoropleth$new(df)
+        map <- CountyChoropleth$new(df)
+      if (!is.null(zoom)) {
+        map <- CountyZoomChoropleth$new(df)
+        map$set_zoom(zoom)
+      }
     }
     if (detail == 'State') {
       df[, 1] <- as.character(df[, 1])
@@ -217,6 +218,19 @@ renderMap <- function(map, legend) {
 }
 
 getBuckets <- function(dataList) {
+  # deciles
+  # get rid of 0 values (if years differed in counties listed)
+  modifiedList <- dataList[which(dataList != 0)]
+  tempBins <- quantile(modifiedList, sapply(1:9, function(x) x / 9.0))
+  if (length(which(dataList %% 1 == 0)) == length(dataList)) {
+    return(floor(tempBins))
+  }
+  # 2 decimal places
+  return(as.numeric(format(round(tempBins, 4), nsmall = 2)))
+}
+
+# 1s + quartiles
+getBucketsVersion2 <- function(dataList) {
   # always want 5 buckets
   # get rid of 0 values (if years differed in counties listed)
   modifiedList <- dataList[which(dataList != 0)]
@@ -235,12 +249,12 @@ getBuckets <- function(dataList) {
 }
 
 getLabels <- function(buckets) {
-  y <- rep(0,5)
+  y <- rep(0,9)
   # integers
   if (length(which(buckets %% 1 == 0)) == length(buckets)) {
     y[1] <- paste0(format(buckets[1], big.mark=","), ' or lower')
-    for (i in 1:4) {
-      if (i < 5 && (buckets[i] + 1) != buckets[i + 1]) {
+    for (i in 1:8) {
+      if ((buckets[i] + 1) != buckets[i + 1] && buckets[i] != buckets[i + 1]) {
         y[i + 1] <- paste0(format(buckets[i] + 1,  big.mark=","), ' to ', format(buckets[i + 1], big.mark = ","))
       } else {
         y[i + 1] <- paste0(format(buckets[i] + 1,  big.mark=","))
@@ -248,7 +262,7 @@ getLabels <- function(buckets) {
     }
   } else {
     y[1] <- paste0(format(buckets[1] * 100, big.mark=","), '% or lower')
-    for (i in 2:5) {
+    for (i in 2:9) {
       y[i] <- paste0(format(buckets[i - 1] * 100,  big.mark=","), '% to ', format(buckets[i] * 100, big.mark = ","), '%')
     }
   }
@@ -273,10 +287,18 @@ plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detai
       legendLabels[3]
     } else if (y <= buckets[4]) {
       legendLabels[4]
-    } else {
+    } else if (y <= buckets[5]) {
       legendLabels[5]
-    }
-  })), levels = legendLabels)
+    } else if (y <= buckets[6]) {
+      legendLabels[6]
+    } else if (y <= buckets[7]) {
+      legendLabels[7]
+    } else if (y <= buckets[8]) {
+      legendLabels[8]
+    } else if (y <= buckets[9]) {
+      legendLabels[9]
+    } 
+  })), levels = make.unique(legendLabels))
   
   # additional customizations require creating a CountyChoropleth object, not using the county_choropleth() method
   if (type == 'census') {
