@@ -385,13 +385,14 @@ addStatCol <- function(string, data, pop1, pop2, updateProgress = NULL) {
                                if (is.function(updateProgress)) {
                                  updateProgress(detail = NULL)
                                }
-                               if (data[i,2] != 0 & data[i,3] != 0) {
+                               if ((ceiling(data[i,3] * pop2[i]) != 0) || ceiling(data[i,2] * pop2[i]) != 0) {
+                                 # table takes non-negative integers. But assumes the data is in rates
                                  obs <- c(ceiling(data[i,3] * pop2[i]), ceiling((1 - data[i,3]) * pop2[i]))
                                  # ceiling to force whole number
                                  exp <- c(ceiling(data[i,2] * pop2[i]), ceiling((1 - data[i,2]) * pop2[i]))
                                  table <- as.data.frame(rbind(obs, exp))
                                  names(table) <- c('Has', 'Not Has')
-                                 format(round(chisq.test(table)$p.value, 7), scientific = TRUE)
+                                 round(chisq.test(table)$p.value, 7)
                                } else {
                                  return(1.0)
                                }
@@ -404,9 +405,14 @@ addStatCol <- function(string, data, pop1, pop2, updateProgress = NULL) {
                                if (is.function(updateProgress)) {
                                  updateProgress(detail = NULL)
                                }
-                               if (data[i,2] != 0 & data[i,3] != 0 & pop1[i] != 0 & pop2[i] != 0) {
+                               p1 <- data[i,2]
+                               p2 <- data[i,3]
+                               p <- (data[i,2] * pop1[i] + data[i,3] * pop2[i]) / (pop1[i] + pop2[i])
+                               n1 <- pop1[i]
+                               n2 <- pop2[i]
+                               if (p != 0 && n1 != 0 && n2 != 0) {
                                  # assume independence. disable Yates correction
-                                 format(round(z.test(data[i,2], data[i,3], (data[i,2] * pop1[i] + data[i,3] * pop2[i]) / (pop1[i] + pop2[i]), pop1[i], pop2[i]), 7), scientific = TRUE)
+                                 round(z.test(p1, p2, p, n1, n2), 7)
                                } else {
                                  return(1.0)
                                }
@@ -419,7 +425,7 @@ addStatCol <- function(string, data, pop1, pop2, updateProgress = NULL) {
         updateProgress(detail = NULL)
       }
       if (as.numeric(y[2]) == 0 | as.numeric(y[3]) == 0 | as.numeric(y[2]) == 0.0000 | as.numeric(y[3] == 0.0000)) 0.0
-      else format(round((as.numeric(y[3]) - as.numeric(y[2])) / as.numeric(y[2]), 7), scientific = TRUE)
+      else round((as.numeric(y[3]) - as.numeric(y[2])) / as.numeric(y[2]), 7)
     })
     data <- data[order(data[, string], decreasing = TRUE), ]
   }

@@ -328,11 +328,11 @@ shinyServer(function(input, output, session) {
     if (input$useData == 'Sort table by user data') {
       data <- readTable()
     } 
-    if (input$stat == 'None') {
+    if (length(getTableCols()) == 1) {
+      showshinyalert(session, "delimitter", "No entries? Make sure the right delimitter is selected (tab, comma, etc)")
+    } else if (input$stat == 'None' || input$sort1By == 'None' || input$sort2By == 'None') {
       showshinyalert(session, "noselection", "Please make a selection")
-    } else  if (input$stat == 'Chi-squared' && (length(which(data[, input$sort1By] < 0)) > 0 || length(which(data[, input$sort2By] < 0)) > 0 || length(which(data[, input$sort1By] %% 1 != 0)) > 0 || length(which(data[, input$sort2By] %% 1 != 0)) > 0)) {
-      showshinyalert(session, "incompatible", "Selected columns must be non-negative integers for this statistic.")
-    } else if ((length(which(data[, input$sort1By] < 0)) > 0 || length(which(data[, input$sort2By] < 0)) > 0 || length(which(data[, input$sort2By] > 1)) > 0 || length(which(data[, input$sort1By] > 1)) > 0) && input$stat != 'Chi-squared' && input$stat != 'None'  && input$stat != 'Percent Difference') {
+    } else if ((length(which(data[, input$sort1By] < 0)) > 0 || length(which(data[, input$sort2By] < 0)) > 0 || length(which(data[, input$sort2By] > 1)) > 0 || length(which(data[, input$sort1By] > 1)) > 0) && input$stat != 'None'  && input$stat != 'Percent Difference') {
       showshinyalert(session, "incompatible", "Selected columns must be rates between 0 and 1 for this statistic.")
     } else {
       data <- as.data.frame(cbind(data[, 1], data[, input$sort1By], data[, input$sort2By]))
@@ -351,8 +351,8 @@ shinyServer(function(input, output, session) {
     
       data <- addStatCol(input$stat, data, pop1 = dataCombined$population2000, pop2 = dataCombined$population2010, updateProgress)
       data[, input$stat] <- sapply(data[, input$stat], function(x) {
-        if (as.numeric(x) < 1E-8) {
-          1E-8
+        if (abs(as.numeric(x)) < 1E-8) {
+          paste0('< 1e-8')
         } else {
           format(x, scientific = TRUE)
         }
