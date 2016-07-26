@@ -8,7 +8,7 @@ shinyServer(function(input, output, session) {
   # loading stuff
   withProgress(message = 'Loading...', value = 0.1, {
     # use install.packages("devtools") and install_github('arilamstein/choroplethrZip@v1.3.0', force = TRUE) for zip maps
-    libraries <- c('shiny', 'RMySQL', 'choroplethr', 'ggplot2', 'gtable', 'gridExtra', 'grid', 'choroplethrZip', 'shinysky')
+    libraries <- c('shiny', 'RMySQL', 'choroplethr', 'ggplot2', 'gtable', 'gridExtra', 'grid', 'choroplethrZip', 'shinysky', 'DT')
     withProgress(message = 'Packages: ', value = 0.0, {
       for (i in 1:length(libraries)) {
         Sys.sleep(0.05)
@@ -367,7 +367,7 @@ shinyServer(function(input, output, session) {
                                           list(targets = c(0), type = "num-fmt")), extensions = 'Buttons')
     # allow top search bar but not column filters
     # (not for datatable) processing = FALSE, paging = FALSE, scrollX = TRUE, scrollY = "100vh", columnDefs = list(list(targets = c(-(1:4)), searchable = FALSE)))
-  }, selection = 'single')
+  })
   
   readMap <- reactive({
     inFile <- ''
