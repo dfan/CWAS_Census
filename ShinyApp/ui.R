@@ -1,9 +1,11 @@
 library(shiny)
+library(shinythemes)
+library(shinysky)
 # Define UI for miles per gallon application
-shinyUI(fluidPage( #pageWithSidebar
+shinyUI(fluidPage(theme = shinytheme("united"), #theme = "yeti.css", #pageWithSidebar
   
   # Application title
-  #headerPanel("US Census 2000/2010"),
+  
   #'shiny-plot-output shiny-bound-output'
   #'# document.getElementById('allmaps').style.height = '100vh';
   #'
@@ -32,13 +34,14 @@ shinyUI(fluidPage( #pageWithSidebar
     tags$style(type="text/css", "body { overflow-y: scroll; }")
   ),
   
-  actionButton("showpanel", "Show/hide sidebar"),
+  actionButton("showpanel", "Show/hide top panel"),
   
   # Sidebar with controls to select the variable to plot against mpg
   # and to specify whether outliers should be included
   sidebarLayout(
     # each time show/hide is clicked, counter increments by 1
     conditionalPanel("input.showpanel % 2 == 0",
+      column(width = 12, headerPanel("CWAS Data Visualization App")),
       sidebarPanel(width = 12,
         # for the nice gray background
         fluidRow(
@@ -48,14 +51,13 @@ shinyUI(fluidPage( #pageWithSidebar
                              "Plot by census data" = "Plot by census data",
                              "Plot by user data" = "Plot by user data")))),
             fluidRow(column(width = 12, fileInput('file1', 'Choose CSV File', accept=c('text/csv', 'text/comma-separated-values,text/plain', '.csv')))),
-            fluidRow(
-              column(width = 12,
-                column(width = 6, style='padding:0px;',
+            conditionalPanel("output.isUploaded",  
+              column(width = 6, style='padding:0px;',
                        radioButtons('sep', 'Separator',
                                     c(Comma=',',
                                       Semicolon=';',
                                       Tab='\t'), 
-                                    '\t')
+                                    ','), checkboxInput('header', 'Include Header', TRUE)
                 ),
                 column(width = 6, style='padding:0px;',
                        radioButtons('quote', 'Quote',
@@ -63,9 +65,7 @@ shinyUI(fluidPage( #pageWithSidebar
                                       'Double Quote'='"',
                                       'Single Quote'="'"),
                                     '"')
-                ),
-                checkboxInput('header', 'Include Header', TRUE)
-              )
+                )
             )
           ),
         
@@ -75,8 +75,7 @@ shinyUI(fluidPage( #pageWithSidebar
                            fluidRow(selectInput("total", "Total Plots", list("1" = "1", "2" = "2", "3" = "3", "4" = "4", "5" = "5", "6" = "6", "7" = "7", "8" = "8", "9" = "9"), width = "100%")),
                            fluidRow(selectInput("cols", "Columns", list("1" = "1", "2" = "2", "3" = "3"), width = "100%")),
                            fluidRow(selectInput("detailLevel", "Level of Detail:", list("None" = "None", "Zip Code" = "Zip Code", "County" = "County", "State" = "State"))),
-                           fluidRow(actionButton("action", "Go!", width = "100%", icon("paper-plane"), 
-                                                 style="color: #fff; background-color: #337ab7; border-color: #2e6da4"))
+                           fluidRow(actionButton("action", "Go!", width = "100%", style = "primary"))
                     )
              ),
             column(width = 3,
@@ -97,7 +96,8 @@ shinyUI(fluidPage( #pageWithSidebar
     ),
     mainPanel(width = 12,
               tabsetPanel(
-                tabPanel("Map(s)", uiOutput("maps")
+                tabPanel("Map(s)", 
+                        uiOutput("maps")
                 ),
                 tabPanel("Table",
                          #radioButtons('useData', NULL, choices = c('Sort table by census data', 'Sort table by user data'), selected = NULL),
@@ -105,7 +105,8 @@ shinyUI(fluidPage( #pageWithSidebar
                          column(3, selectInput("useData", "Select dataset:", 
                                                list("None" = "None",
                                                     "Sort table by census data" = "Sort table by census data",
-                                                    "Sort table by user data" = "Sort table by user data"))),
+                                                    "Sort table by user data" = "Sort table by user data")), 
+                                              actionButton("displayTable", "Go!", width = "100%", style = "primary")),
                          column(3, uiOutput("table1List")),
                          column(3, uiOutput("table2List")),
                          column(3, selectInput("stat", "Order by statistic:",
@@ -117,14 +118,18 @@ shinyUI(fluidPage( #pageWithSidebar
                   fluidRow(
                      br(),
                      column(12, align = "center",
-                         dataTableOutput("table")
+                         shinyalert("incompatible", click.hide = FALSE, auto.close.after = 5),
+                         shinyalert("noselection", click.hide = FALSE, auto.close.after = 5),
+                         br(),
+                         dataTableOutput("table"),
+                         br()
                      )
                   )
                 ),
                 tabPanel("ICD9s", 
                          radioButtons('icd9', NULL, choices = c('None selected', 'See ICD9 rates for user table')),
                          uiOutput("icd9List"),
-                         actionButton("displayTable", "Go!"),
+                         actionButton("displayICD9", "Go!", style = "primary"),
                   fluidRow(
                     br(),
                     column(12, align = "center",

@@ -1,0 +1,16 @@
+library('RMySQL')
+source('helper.R')
+con <- dbConnect(MySQL(), user = "root", password = "root", dbname = "census2000", unix.sock="/Applications/MAMP/tmp/mysql/mysql.sock")
+data2000 <- dbReadTable(conn = con, name = "acs")
+dbDisconnect(con)
+con <- dbConnect(MySQL(), user = "root", password = "root", dbname = "census2010", unix.sock="/Applications/MAMP/tmp/mysql/mysql.sock")
+data2010 <- dbReadTable(conn = con, name = "acs")
+dataCombined <- cbind(data2000, data2010[, -1], data2010[, -1])
+setwd('/Users/dfan/Dropbox/Research\ Lab\ Projects/Undergraduate/Harvard-MIT\ 2016/Code/CWAS_Census/ShinyApp')
+colnames(dataCombined) <- c('county', read.csv('../Data/censusColNames.csv', stringsAsFactors=FALSE)[, 1])
+dbDisconnect(con)
+zipTable <- read.csv('../Data/zcta_county.csv', stringsAsFactors=FALSE, colClasses=c("ZCTA5"="character", "STATE" = "character", "COUNTY" = "character"))
+
+dataState <- aggregateCensusToState(dataCombined)
+write.table(dataState, file = 'censusState.csv', row.names = FALSE, sep = ',')
+

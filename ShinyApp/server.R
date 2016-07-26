@@ -8,7 +8,7 @@ shinyServer(function(input, output, session) {
   # loading stuff
   withProgress(message = 'Loading...', value = 0.1, {
     # use install.packages("devtools") and install_github('arilamstein/choroplethrZip@v1.3.0', force = TRUE) for zip maps
-    libraries <- c('shiny', 'RMySQL', 'choroplethr', 'ggplot2', 'gtable', 'gridExtra', 'grid', 'choroplethrZip')
+    libraries <- c('shiny', 'RMySQL', 'choroplethr', 'ggplot2', 'gtable', 'gridExtra', 'grid', 'choroplethrZip', 'shinysky')
     withProgress(message = 'Packages: ', value = 0.0, {
       for (i in 1:length(libraries)) {
         Sys.sleep(0.05)
@@ -19,7 +19,8 @@ shinyServer(function(input, output, session) {
     data(state)
     source('helper.R')
     # for animation purposes
-    sapply(seq(from=20, to=40, by=1), function(i) incProgress(0.01, detail = paste0(i, '%')))
+    sapply(seq(from=0, to=100, by=1), function(i) incProgress(0.01, detail = paste0(i, '%')))
+    
     con <- dbConnect(MySQL(), user = "root", password = "root", dbname = "census2000", unix.sock="/Applications/MAMP/tmp/mysql/mysql.sock")
     data2000 <- dbReadTable(conn = con, name = "acs")
     dbDisconnect(con)
@@ -30,25 +31,12 @@ shinyServer(function(input, output, session) {
     colnames(dataCombined) <- c('county', read.csv('../Data/censusColNames.csv', stringsAsFactors=FALSE)[, 1])
     dbDisconnect(con)
     zipTable <- read.csv('../Data/zcta_county.csv', stringsAsFactors=FALSE, colClasses=c("ZCTA5"="character", "STATE" = "character", "COUNTY" = "character"))
-    # for animation purposes
-    sapply(seq(from=40, to=80, by=1), function(i) incProgress(0.01, detail = paste0(i, '%')))
-    
-    # Create a Progress object
-    progress <- shiny::Progress$new()
-    progress$set(message = "Aggregating census data", value = 0)
-    on.exit(progress$close())
-    # increments 1/10 of the remaining space each time
-    n <- length(state.name)
-    updateProgress <- function(detail = NULL) {
-      progress$inc(amount = 1/n, detail = detail)
-    }
     # already aggregated in another file to save time
     # read once to get column classes
     dataState <- read.csv('censusState.csv', stringsAsFactors=FALSE, check.names=FALSE)
     dataState <- read.csv('censusState.csv', stringsAsFactors=FALSE, check.names=FALSE, colClasses = c('character', sapply(names(dataState), function(x) class(dataState[,x]))[-1]))
     #dataState <- aggregateCensusToState(dataCombined, updateProgress)
     
-    sapply(seq(from=80, to=100, by=1), function(i) incProgress(0.01, detail = paste0(i, '%')))
     # retain leading zeros for ZCTA5 codes
     options(shiny.maxRequestSize=150*1024^2)
     # Increment the top-level progress indicator
@@ -66,6 +54,10 @@ shinyServer(function(input, output, session) {
     return (as.numeric(input$rows))
   })
   
+  whichData <- reactive({
+    return (input$whichMapData)
+  })
+  
   getDetail <- reactive({
     return (input$detailLevel)
   })
@@ -79,6 +71,17 @@ shinyServer(function(input, output, session) {
   getHeight <- reactive({
     return (session$clientData$output_allmaps_width)
   })
+  
+  # for map display (suppressing error messages)
+  isUploaded <- reactive({
+    return(!is.null(input$file1))
+  })
+  
+  # for conditional panel
+  output$isUploaded <- reactive({
+    return(!is.null(input$file1))
+  })
+  outputOptions(output, 'isUploaded', suspendWhenHidden=FALSE)
   
   bucketData <- reactive({
     input$action
@@ -124,7 +127,6 @@ shinyServer(function(input, output, session) {
   # isolate -> dependency on go button
   plotObjects <- eventReactive(input$action, {
     # isolate mapType value update so that reactive dependencies don't override the isolated go button
-    input$action
     isolate(total <- getTotal())
     values <- reactiveValues(i = 0)
     # change from county to state data here
@@ -234,23 +236,28 @@ shinyServer(function(input, output, session) {
   output$maps <- renderUI({
     # isolate mapType value update so that reactive dependencies don't override the isolated go button
     input$action
-    isolate(total <- getTotal())
-    isolate(col <- getNumCols())
-    isolate(objects <- plotObjects())
-    tags$div(tags$style("#allmaps{height:100vh !important;}"))
-    # splitLayout avoids columns
-    column(12, align = "center", 
-           fluidRow(
-             tagList(
-              column(width = 2, align = 'left', style='padding:0px;', downloadButton('png', 'Download as png')),
-              column(width = 2, align = 'left', style='padding:0px;', downloadButton('pdf', 'Download as pdf')),
-              # can't set width here and in UI or it resolves to 0
-              column(width = 12, align = 'center', plotOutput("allmaps")),
-              column(width = 12, align = 'center', plotOutput("legend", width = '100%', height = 75))
+    isolate(whichMap <- whichData())
+    isolate(whichDetail <- getDetail())
+    isolate(uploaded <- isUploaded())
+    if (whichMap != "None" && whichDetail != "None" && !(whichMap == "Plot by user data" && !uploaded)) {
+      input$action
+      isolate(total <- getTotal())
+      isolate(col <- getNumCols())
+      isolate(objects <- plotObjects())
+      column(12, align = "center", 
+             fluidRow(
+               tagList(
+                 column(width = 2, align = 'left', style='padding:0px;', downloadButton('png', 'Download as png')),
+                 column(width = 2, align = 'left', style='padding:0px;', downloadButton('pdf', 'Download as pdf')),
+                 # can't set width here and in UI or it resolves to 0
+                 column(width = 12, align = 'center', plotOutput("allmaps")),
+                 column(width = 12, align = 'center', plotOutput("legend", width = '100%', height = 75))
+               )
              )
-           )
-          )
-    
+      )
+      # don't display error at start of the app or when you've only updated one section
+    }
+    # splitLayout avoids columns
   })
   
   output$png <- downloadHandler(
@@ -313,24 +320,54 @@ shinyServer(function(input, output, session) {
     }
   )
   
-  ### for second panel ###
-  output$table <- renderDataTable({
+  
+  tableStat <- eventReactive(input$displayTable, {
     if (input$useData == 'Sort table by census data') {
       data <- dataCombined
-    } else if (input$useData == 'Sort table by user data') {
+    } 
+    if (input$useData == 'Sort table by user data') {
       data <- readTable()
+    } 
+    if (input$stat == 'None') {
+      showshinyalert(session, "noselection", "Please make a selection")
+    } else  if (input$stat == 'Chi-squared' && (length(which(data[, input$sort1By] < 0)) > 0 || length(which(data[, input$sort2By] < 0)) > 0 || length(which(data[, input$sort1By] %% 1 != 0)) > 0 || length(which(data[, input$sort2By] %% 1 != 0)) > 0)) {
+      showshinyalert(session, "incompatible", "Selected columns must be non-negative integers for this statistic.")
+    } else if ((length(which(data[, input$sort1By] < 0)) > 0 || length(which(data[, input$sort2By] < 0)) > 0 || length(which(data[, input$sort2By] > 1)) > 0 || length(which(data[, input$sort1By] > 1)) > 0) && input$stat != 'Chi-squared' && input$stat != 'None'  && input$stat != 'Percent Difference') {
+      showshinyalert(session, "incompatible", "Selected columns must be rates between 0 and 1 for this statistic.")
     } else {
-      # avoid error message when "None" is selected but files are uploaded
-      return(NULL)
+      data <- as.data.frame(cbind(data[, 1], data[, input$sort1By], data[, input$sort2By]))
+      names(data) <- c('county', input$sort1By, input$sort2By)
+      # ensure data is in numeric format so division happens correctly below. as.character prevents numeric from removing decimals
+      data[, input$sort1By] <- as.numeric(as.character(data[, input$sort1By]))
+      data[, input$sort2By] <- as.numeric(as.character(data[, input$sort2By]))
+      # If data didn't exist in 2000 but did in 2010, then set % change to 0. We don't want Inf values
+      progress <- shiny::Progress$new()
+      progress$set(message = "Computing table statistics...", value = 0)
+      on.exit(progress$close())
+      n <- length(data[, 1])
+      updateProgress <- function(detail = NULL) {
+        progress$inc(amount = 1/n, detail = detail)
+      }
+    
+      data <- addStatCol(input$stat, data, pop1 = dataCombined$population2000, pop2 = dataCombined$population2010, updateProgress)
+      data[, input$stat] <- sapply(data[, input$stat], function(x) {
+        if (as.numeric(x) < 1E-8) {
+          1E-8
+        } else {
+          format(x, scientific = TRUE)
+        }
+      })
+      data
     }
-    data <- as.data.frame(cbind(data$county, data[, input$sort1By], data[, input$sort2By]))
-    names(data) <- c('county', input$sort1By, input$sort2By)
-    # ensure data is in numeric format so division happens correctly below. as.character prevents numeric from removing decimals
-    data[, input$sort1By] <- as.numeric(as.character(data[, input$sort1By]))
-    data[, input$sort2By] <- as.numeric(as.character(data[, input$sort2By]))
-    # If data didn't exist in 2000 but did in 2010, then set % change to 0. We don't want Inf values
-    data <- addStatCol(input$stat, data, pop1 = dataCombined$population2000, pop2 = dataCombined$population2010)
-  }, options=list(processing = FALSE, paging = FALSE, scrollX = TRUE, scrollY = "100vh"))
+  })
+  
+  ### for second panel ###
+  output$table <- renderDataTable({
+    datatable(tableStat(), options = list(dom = 'Bfrtip', buttons = c('copy', 'excel', 'pdf', 'print', 'colvis'), paging = FALSE, scrollY = "90vh",
+                                          list(targets = c(0), type = "num-fmt")), extensions = 'Buttons')
+    # allow top search bar but not column filters
+    # (not for datatable) processing = FALSE, paging = FALSE, scrollX = TRUE, scrollY = "100vh", columnDefs = list(list(targets = c(-(1:4)), searchable = FALSE)))
+  }, selection = 'single')
   
   readMap <- reactive({
     inFile <- ''
@@ -415,7 +452,7 @@ shinyServer(function(input, output, session) {
   })
   
   # Isolate output to give dependency on go button
-  geticd9Table <- eventReactive(input$displayTable, {
+  geticd9Table <- eventReactive(input$displayICD9, {
     inFile <- ''
     data <- ''
     if (input$icd9 == 'None selected' | is.null(input$file1) & is.null(input$file2)) {

@@ -84,6 +84,9 @@ aggregateUserToState <- function(data, updateProgress = NULL) {
   # all counties in the same state start with the same two digits in their FIPS code
   # ranges from 01 to 56 but some numbers are skipped like 03.
   df[, -1] <- t(sapply(1:length(stateCode), function(i) {
+    if (is.function(updateProgress)) {
+      updateProgress(detail = NULL)
+    }
     state <- which(substr(data[, 1], 1, 2) == stateCode[i])
     if (is.function(updateProgress)) {
       updateProgress(detail = NULL)
@@ -122,6 +125,33 @@ aggregateToRegion <- function(df) {
     col
   })
   df
+}
+
+aggregateRegionOnly <- function(df) {
+  new_england = c("connecticut", "maine", "massachusetts", "new hampshire", "rhode island", "vermont")
+  middle_atlantic = c("new jersey", "new york", "pennsylvania")
+  east_north_central = c("indiana", "illinois", "michigan", "ohio", "wisconsin")
+  west_north_central = c("iowa", "kansas", "minnesota", "missouri", "nebraska", "north dakota", "south dakota")
+  south_atlantic = c("delaware", "district of columbia", "florida", "georgia", "maryland", "north carolina", "south carolina", "virginia", "west virginia")
+  east_south_central = c("alabama", "kentucky", "mississippi", "tennessee")
+  west_south_central = c("arkansas", "louisiana", "oklahoma", "texas")
+  mountain = c("arizona", "colorado", "idaho", "new mexico", "montana", "utah", "nevada", "wyoming")
+  pacific = c("alaska", "california", "hawaii", "oregon", "washington")
+  regions <- list(new_england, middle_atlantic, east_north_central, west_north_central, south_atlantic, east_south_central, west_south_central, mountain, pacific)
+  names <- c('new_england', 'middle_atlantic', 'east_north_central', 'west_north_central', 'south_atlantic', 'east_south_central', 'west_south_central', 'mountain', 'pacific')
+  data <- as.data.frame(cbind(names, matrix(rep(0, length(names) * (dim(df)[2] - 1)), nrow = length(names))), stringsAsFactors = FALSE)
+  names(data) <- c('region', names(df)[-1])
+  data[, -1] <- sapply(2:dim(df)[2], function(i) {
+    col <- as.numeric(data[, i])
+    for (x in 1:length(regions)) {
+      list <- sapply(1:length(regions[[x]]), function(j) {
+        df[which(df[, 1] == regions[[x]][j]), i]
+      })
+      col[x] <- sum(list)
+    }
+    col
+  })
+  data
 }
 
 getMedianList <- function(data, pop) {
@@ -330,15 +360,20 @@ plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detai
   renderMap(map, legend)
 }
 
-addStatCol <- function(string, data, pop1, pop2) {
+addStatCol <- function(string, data, pop1, pop2, updateProgress = NULL) {
+  pop1 <- as.numeric(pop1)
+  pop2 <- as.numeric(pop2)
   if (string == 'Binomial Exact') {
-    data[, string] <- sapply(1:length(data[, 1]), 
+    data[, string] <- sapply(1:length(data[, 1]),
                              function(i) {
+                               if (is.function(updateProgress)) {
+                                 updateProgress(detail = NULL)
+                               }
                                # ceiling to force whole number
-                               if (data[i,2] != 0 & data[i,3] != 0) {
-                                 format(round(binom.test(ceiling(data[i,2] * pop2[i]), pop2[i], data[i,3], alternative="two.sided"), 7), scientific = TRUE)$p.value
+                               if (pop1[i] != 0 && pop2[i] != 0) {
+                                 round(binom.test(ceiling(data[i,2] * pop2[i]), pop2[i], data[i,3], alternative="two.sided")$p.value, 7)
                                } else {
-                                 return(1.0)
+                                 1.0
                                }
                              }
     )
@@ -347,6 +382,9 @@ addStatCol <- function(string, data, pop1, pop2) {
   if (string == 'Chi-squared') {
     data[, string] <- sapply(1:length(data[, 1]),
                              function(i) {
+                               if (is.function(updateProgress)) {
+                                 updateProgress(detail = NULL)
+                               }
                                if (data[i,2] != 0 & data[i,3] != 0) {
                                  obs <- c(ceiling(data[i,3] * pop2[i]), ceiling((1 - data[i,3]) * pop2[i]))
                                  # ceiling to force whole number
@@ -363,6 +401,9 @@ addStatCol <- function(string, data, pop1, pop2) {
   if (string == 'Two Proportions') {
     data[, string] <- sapply(1:length(data[, 1]),
                              function(i) {
+                               if (is.function(updateProgress)) {
+                                 updateProgress(detail = NULL)
+                               }
                                if (data[i,2] != 0 & data[i,3] != 0 & pop1[i] != 0 & pop2[i] != 0) {
                                  # assume independence. disable Yates correction
                                  format(round(z.test(data[i,2], data[i,3], (data[i,2] * pop1[i] + data[i,3] * pop2[i]) / (pop1[i] + pop2[i]), pop1[i], pop2[i]), 7), scientific = TRUE)
@@ -374,6 +415,9 @@ addStatCol <- function(string, data, pop1, pop2) {
   }
   if (string == 'Percent Difference') {
     data[, 'Percent Difference'] <- apply(data, 1, function(y) { 
+      if (is.function(updateProgress)) {
+        updateProgress(detail = NULL)
+      }
       if (as.numeric(y[2]) == 0 | as.numeric(y[3]) == 0 | as.numeric(y[2]) == 0.0000 | as.numeric(y[3] == 0.0000)) 0.0
       else format(round((as.numeric(y[3]) - as.numeric(y[2])) / as.numeric(y[2]), 7), scientific = TRUE)
     })
@@ -383,6 +427,10 @@ addStatCol <- function(string, data, pop1, pop2) {
 }
 
 z.test <- function(p1, p2, p, n1, n2) {
-  z <- -abs((p1 - p2)) / sqrt(p * (1 - p) * (1.0 / n1 + 1.0 / n2))
+  if (n1 == 0 || n2 == 0) {
+    z <- 0.5
+  } else {
+    z <- -abs((p1 - p2)) / sqrt(p * (1 - p) * (1.0 / n1 + 1.0 / n2))
+  }
   return(pnorm(z) * 2)
 }
