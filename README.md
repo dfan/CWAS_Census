@@ -11,10 +11,12 @@ App functionality:
 Below are plots of the USA colored by median income, black population, white population and total population by county.
 
 Make sure to run devtools::install_github('rstudio/DT') (for the buttons in table download)
-Also to rebuild choroplethr with the custom function, do this in the directory:
+Also to rebuild choroplethr with the custom function, do this in the directory (after modifying usa.R):
 
 library(devtools)
+
 build()
+
 install()
 
 
