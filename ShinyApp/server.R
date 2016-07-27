@@ -102,7 +102,11 @@ shinyServer(function(input, output, session) {
       }
     }
     list <- sapply(1:total, function(i) {
-      if (!input$difference) {
+      if (input$percentdifference) {
+        # we don't want division by zero
+        data <- data[which(data[, input[[paste0('variable', i, 'a')]]] != 0), ]
+        (data[, input[[paste0('variable', i, 'b')]]] - data[, input[[paste0('variable', i, 'a')]]]) / data[, input[[paste0('variable', i, 'a')]]]
+      } else if (!input$difference) {
         data[, input[[paste0('variable', i, 'a')]]]
       } else if (input$difference) {
         data[, input[[paste0('variable', i, 'b')]]] - data[, input[[paste0('variable', i, 'a')]]]
@@ -160,14 +164,18 @@ shinyServer(function(input, output, session) {
     progress$set(message = "Plotting...", value = 0)
     on.exit(progress$close())
     plotList <- lapply(1:total, function(i) {
-      if (input$difference) {
+      if (input$percentdifference) {
+        progress$inc(1/total, detail = paste("map", i))
+        data <- data[which(data[, input[[paste0('variable', i, 'a')]]] != 0), ]
+        plotPercentDiffMap(input[[paste0('variable', i, 'a')]], input[[paste0('variable', i, 'b')]], type, data, paste("USA Colored by % Difference in", input[[paste0('variable', i, 'a')]], 'and', input[[paste0('variable', i, 'b')]]), colorList[i], getBuckets(bucketData(), 'Percent'), getDetail(), legend, NULL)$render()
+      } else if (input$difference) {
         # needs to be inside for some reason
         progress$inc(1/total, detail = paste("map", i))
-        plotDiffMap(input[[paste0('variable', i, 'a')]], input[[paste0('variable', i, 'b')]], type, data, paste("USA Colored by Difference in", input[[paste0('variable', i, 'a')]], 'and', input[[paste0('variable', i, 'b')]]), colorList[i], getBuckets(bucketData()), getDetail(), legend)$render()
+        plotDiffMap(input[[paste0('variable', i, 'a')]], input[[paste0('variable', i, 'b')]], type, data, paste("USA Colored by Difference in", input[[paste0('variable', i, 'a')]], 'and', input[[paste0('variable', i, 'b')]]), colorList[i], getBuckets(bucketData(), 'notpercent'), getDetail(), legend, NULL)$render()
       } else if (!input$difference) {
         # order matters; value line goes first
         progress$inc(1/total, detail = paste("map", i))
-        plotMap(input[[paste0('variable', i, 'a')]], type, data, paste("USA Colored by", input[[paste0('variable', i, 'a')]]), colorList[i], getBuckets(bucketData()), getDetail(), legend, NULL)$render()
+        plotMap(input[[paste0('variable', i, 'a')]], type, data, paste("USA Colored by", input[[paste0('variable', i, 'a')]]), colorList[i], getBuckets(bucketData(), 'notpercent'), getDetail(), legend, NULL)$render()
       }
     })
     return(plotList)
@@ -198,10 +206,15 @@ shinyServer(function(input, output, session) {
         data <- aggregateUserToState(raw)
       }
     }
-    if (input$difference) {
-      return(list(plotDiffMap(input[['variable1a']], input[['variable1b']], type, data, paste("USA Colored by Difference in", input[['variable1a']], 'and', input[['variable1b']]), legendColor(), getBuckets(bucketData()), getDetail(), 'legendonly')))
+    if (input$percentdifference) {
+      if (length(which(data[, input[[paste0('variable', i, 'a')]]] == 0)) > 0) {
+        data <- data[which(data[, input[[paste0('variable', i, 'a')]]] != 0), ]
+      }
+      return(list(plotPercentDiffMap(input[['variable1a']], input[['variable1b']], type, data, paste("USA Colored by % Difference in", input[['variable1a']], 'and', input[['variable1b']]), legendColor(), getBuckets(bucketData(), 'Percent'), getDetail(), 'legendonly', NULL)))
+    } else if (input$difference) {
+      return(list(plotDiffMap(input[['variable1a']], input[['variable1b']], type, data, paste("USA Colored by Difference in", input[['variable1a']], 'and', input[['variable1b']]), legendColor(), getBuckets(bucketData(), 'notpercent'), getDetail(), 'legendonly', NULL)))
     } else if (!input$difference) {
-      return(list(plotMap(input[['variable1a']], type, data, paste("USA Colored by", input[['variable1a']]), legendColor(), getBuckets(bucketData()), getDetail(), 'legendonly', NULL)))
+      return(list(plotMap(input[['variable1a']], type, data, paste("USA Colored by", input[['variable1a']]), legendColor(), getBuckets(bucketData(), 'notpercent'), getDetail(), 'legendonly', NULL)))
     }
   })
   
@@ -379,8 +392,8 @@ shinyServer(function(input, output, session) {
       inFile <- input$file1
       # first time to get column classes
       # check.names=FALSE prevents column names from being modified
-      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote, check.names=FALSE)
-      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote, check.names=FALSE, colClasses = c('character', sapply(names(a), function(x) class(a[,x]))[-1]))
+      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, check.names=FALSE)
+      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, check.names=FALSE, colClasses = c('character', sapply(names(a), function(x) class(a[,x]))[-1]))
     }
     a
   })
@@ -395,8 +408,8 @@ shinyServer(function(input, output, session) {
       inFile <- input$file1
       # first time to get column classes
       # check.names=FALSE prevents column names from being modified
-      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote, check.names=FALSE)
-      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote, check.names=FALSE, colClasses = c('character', sapply(names(a), function(x) class(a[,x]))[-1]))
+      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, check.names=FALSE)
+      a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, check.names=FALSE, colClasses = c('character', sapply(names(a), function(x) class(a[,x]))[-1]))
     }
     a
   })
@@ -417,9 +430,9 @@ shinyServer(function(input, output, session) {
   output$colorselection <- renderUI({
     lapply(1:(getTotal() + 1), function(i) {
       if (i == (getTotal() + 1) && getTotal() > 1) {
-        selectInput('legendcolor', 'Color of Legend', list('Red' = 'Reds', 'Blue' = 'Blues', 'Green' = 'Greens', 'Purple' = 'Purples', 'Orange' = 'Oranges'))
+        selectInput('legendcolor', 'Color of Legend', list('Red' = 'Reds', 'Blue' = 'Blues', 'Green' = 'Greens', 'Red-Green' = 'Red-Green'))
       } else if (i < (getTotal() + 1)){
-        selectInput(paste0('color', i), paste0('Color ', i), list('Red' = 'Reds', 'Blue' = 'Blues', 'Green' = 'Greens', 'Purple' = 'Purples', 'Orange' = 'Oranges'))
+        selectInput(paste0('color', i), paste0('Color ', i), list('Red' = 'Reds', 'Blue' = 'Blues', 'Green' = 'Greens', 'Red-Green' = 'Red-Green'))
       }
     })
   })
@@ -461,7 +474,7 @@ shinyServer(function(input, output, session) {
       inFile <- input$file1
       data = data2000
     }
-    a <- read.csv(inFile$datapath, header=input$header, sep=input$sep, quote=input$quote)
+    a <- read.csv(inFile$datapath, header=input$header, sep=input$sep)
     a <- as.data.frame(cbind(a[, 1], a[, input$sorticd9]))
     names(a) <- c('STCOU', input$sorticd9)
     a[, -1] <- format(round(a[, -1] / data$population[1:length(a[, 1])], 7), scientific = TRUE)

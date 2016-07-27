@@ -194,9 +194,11 @@ plotMap <- function(string, type, data, title, color, buckets, detail, legend, z
       legendLabels[7]
     } else if (y <= buckets[8]) {
       legendLabels[8]
-    } else {
+    } else if (y <= buckets[9]) {
       legendLabels[9]
-    } 
+    } else {
+      legendLabels[10]
+    }
   })), levels = make.unique(legendLabels))
 
   #additional customizations require creating a CountyChoropleth object, not using the county_choropleth() method
@@ -226,9 +228,24 @@ plotMap <- function(string, type, data, title, color, buckets, detail, legend, z
     }
   }
   map$title <- title
-  map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
+  # http://www.stat.columbia.edu/~tzheng/files/Rcolor.pdf
+  if (color == "Reds") {
+    cbPalette <- colorRampPalette(c(colorRampPalette(c("white", "orange1"))(20)[2], "tomato1", "red3", "#660000"))(10)
+  } 
+  if (color == "Blues") {
+    cbPalette <- colorRampPalette(c(colorRampPalette(c("white", "#0000ff"))(20)[2], "royalblue2", "#000099"))(10)
+  }
+  if (color == "Greens") {
+    cbPalette <- colorRampPalette(c(colorRampPalette(c("white", "palegreen3"))(18)[2], "#66a266", "#003200"))(10)
+  }
+  if (color == "Red-Green") {
+    numRed <- length(which(buckets < 0))
+    cbPalette <- c(colorRampPalette(c("red3", "seashell"))(numRed), colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
+  }
+  # scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
+  map$ggplot_scale <- scale_fill_manual(values = cbPalette)
   if (legend == 'legendandmap' || legend == 'legendonly') {
-    map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE)
+    map$ggplot_scale <- scale_fill_manual(values = cbPalette)
   }
   renderMap(map, legend)
 }
@@ -247,11 +264,28 @@ renderMap <- function(map, legend) {
   }
 }
 
-getBuckets <- function(dataList) {
+getBuckets3 <- function(dataList, type) {
+  if (type != 'Percent') {
+    modifiedList <- dataList[which(dataList != 0)]
+  } 
+  if (type == 'Percent') {
+    # Zeros were removed in server.R
+    modifiedList <- dataList
+  }
+  tempBins <- quantile(modifiedList, c(0.75, sapply(1:8, function(x) 0.75 + x / 8 * 0.25)))
+  if (length(which(dataList %% 1 == 0)) == length(dataList)) {
+    return(floor(tempBins))
+  }
+  # 2 decimal places
+  return(as.numeric(format(round(tempBins, 4), nsmall = 2)))
+}
+
+getBuckets <- function(dataList, type) {
   # deciles
   # get rid of 0 values (if years differed in counties listed)
-  modifiedList <- dataList[which(dataList != 0)]
-  tempBins <- quantile(modifiedList, sapply(1:9, function(x) x / 9.0))
+  # Zeros were removed in server.R for percents; zeros don't matter for the rest
+  modifiedList <- dataList
+  tempBins <- quantile(modifiedList, sapply(1:10, function(x) x / 10.0))
   if (length(which(dataList %% 1 == 0)) == length(dataList)) {
     return(floor(tempBins))
   }
@@ -279,11 +313,11 @@ getBucketsVersion2 <- function(dataList) {
 }
 
 getLabels <- function(buckets) {
-  y <- rep(0,9)
+  y <- rep(0,10)
   # integers
   if (length(which(buckets %% 1 == 0)) == length(buckets)) {
     y[1] <- paste0(format(buckets[1], big.mark=","), ' or lower')
-    for (i in 1:8) {
+    for (i in 1:9) {
       if ((buckets[i] + 1) != buckets[i + 1] && buckets[i] != buckets[i + 1]) {
         y[i + 1] <- paste0(format(buckets[i] + 1,  big.mark=","), ' to ', format(buckets[i + 1], big.mark = ","))
       } else {
@@ -292,7 +326,7 @@ getLabels <- function(buckets) {
     }
   } else {
     y[1] <- paste0(format(buckets[1] * 100, big.mark=","), '% or lower')
-    for (i in 2:9) {
+    for (i in 2:10) {
       y[i] <- paste0(format(buckets[i - 1] * 100,  big.mark=","), '% to ', format(buckets[i] * 100, big.mark = ","), '%')
     }
   }
@@ -300,8 +334,8 @@ getLabels <- function(buckets) {
   return(y)
 }
 
-plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detail, legend) {
-  df <- as.data.frame(cbind(data[,1], data[, param2] - data[, param1]))
+plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detail, legend, zoom) {
+  df <- as.data.frame(cbind(data[, 1], data[, param2] - data[, param1]))
   names(df) <- c("region", "value")
   # remove leading zeros from FIP codes
   # choropleth requires numeric column type in dataframe
@@ -327,10 +361,12 @@ plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detai
       legendLabels[8]
     } else if (y <= buckets[9]) {
       legendLabels[9]
-    } 
+    } else {
+      legendLabels[10]
+    }
   })), levels = make.unique(legendLabels))
   
-  # additional customizations require creating a CountyChoropleth object, not using the county_choropleth() method
+  #additional customizations require creating a CountyChoropleth object, not using the county_choropleth() method
   if (type == 'census') {
     if (detail == 'County') {
       map <- CountyChoropleth$new(df)
@@ -346,16 +382,115 @@ plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detai
     } 
     if (detail == 'County') {
       map <- CountyChoropleth$new(df)
-    } 
+      if (!is.null(zoom)) {
+        map <- CountyZoomChoropleth$new(df)
+        map$set_zoom(zoom)
+      }
+    }
     if (detail == 'State') {
-      df[, 1] <- as.character(df[,1])
+      df[, 1] <- as.character(df[, 1])
       map <- StateChoropleth$new(df)
     }
   }
-  map$title = title
-  map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
+  map$title <- title
+  if (color == "Reds") {
+    cbPalette <- colorRampPalette(c(colorRampPalette(c("white", "orange1"))(20)[2], "tomato1", "red3", "#660000"))(10)
+  } 
+  if (color == "Blues") {
+    cbPalette <- colorRampPalette(c(colorRampPalette(c("white", "#0000ff"))(20)[2], "royalblue2", "#000099"))(10)
+  }
+  if (color == "Greens") {
+    cbPalette <- colorRampPalette(c(colorRampPalette(c("white", "palegreen3"))(18)[2], "#66a266", "#003200"))(10)
+  }
+  if (color == "Red-Green") {
+    numRed <- length(which(buckets < 0))
+    cbPalette <- c(colorRampPalette(c("red3", "seashell"))(numRed), colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
+  }
+  # scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
+  map$ggplot_scale <- scale_fill_manual(values = cbPalette)
   if (legend == 'legendandmap' || legend == 'legendonly') {
-    map$ggplot_scale <- scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE)
+    map$ggplot_scale <- scale_fill_manual(values=cbPalette)
+  }
+  renderMap(map, legend)
+}
+
+plotPercentDiffMap <- function(param1, param2, type, data, title, color, buckets, detail, legend, zoom) {
+  df <- as.data.frame(cbind(data[,1], (data[, param2] - data[, param1]) / data[, param1]))
+  names(df) <- c("region", "value")
+  # remove leading zeros from FIP codes
+  # choropleth requires numeric column type in dataframe
+  df$value <- as.numeric(as.character(df$value))
+  legendLabels <- getLabels(buckets)
+  print(legendLabels)
+  # set levels to be sure and INSIDE not afterward or else the values will get changed
+  df$value <- factor(as.character(sapply(df$value, function(y) {
+    if (y <= buckets[1]) {
+      legendLabels[1]
+    } else if (y <= buckets[2]) {
+      legendLabels[2]
+    } else if (y <= buckets[3]) {
+      legendLabels[3]
+    } else if (y <= buckets[4]) {
+      legendLabels[4]
+    } else if (y <= buckets[5]) {
+      legendLabels[5]
+    } else if (y <= buckets[6]) {
+      legendLabels[6]
+    } else if (y <= buckets[7]) {
+      legendLabels[7]
+    } else if (y <= buckets[8]) {
+      legendLabels[8]
+    } else if (y <= buckets[9]) {
+      legendLabels[9]
+    } else {
+      legendLabels[10]
+    }
+  })), levels = make.unique(legendLabels))
+  
+  #additional customizations require creating a CountyChoropleth object, not using the county_choropleth() method
+  if (type == 'census') {
+    if (detail == 'County') {
+      map <- CountyChoropleth$new(df)
+    }
+    if (detail == 'State') {
+      df[, 1] <- as.character(df[, 1])
+      map <- StateChoropleth$new(df)
+    }
+  }
+  if (type == 'user') {
+    if (detail == 'Zip') {
+      map <- ZipChoropleth$new(df)
+    } 
+    if (detail == 'County') {
+      map <- CountyChoropleth$new(df)
+      if (!is.null(zoom)) {
+        map <- CountyZoomChoropleth$new(df)
+        map$set_zoom(zoom)
+      }
+    }
+    if (detail == 'State') {
+      df[, 1] <- as.character(df[, 1])
+      map <- StateChoropleth$new(df)
+    }
+  }
+  map$title <- title
+  if (color == "Reds") {
+    cbPalette <- colorRampPalette(c(colorRampPalette(c("white", "orange1"))(20)[2], "tomato1", "red3", "#660000"))(10)
+  } 
+  if (color == "Blues") {
+    cbPalette <- colorRampPalette(c(colorRampPalette(c("white", "#0000ff"))(20)[2], "royalblue2", "#000099"))(10)
+  }
+  if (color == "Greens") {
+    cbPalette <- colorRampPalette(c(colorRampPalette(c("white", "palegreen3"))(18)[2], "#66a266", "#003200"))(10)
+  }
+  if (color == "Red-Green") {
+    numRed <- length(which(buckets < 0))
+    cbPalette <- c(colorRampPalette(c("red3", "seashell"))(numRed), colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
+  }
+  # scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
+  map$ggplot_scale <- scale_fill_manual(values = cbPalette)
+  if (legend == 'legendandmap' || legend == 'legendonly') {
+    map$ggplot_scale <- scale_fill_manual(values=cbPalette)
   }
   renderMap(map, legend)
 }

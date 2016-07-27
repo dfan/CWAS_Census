@@ -39,16 +39,16 @@ names <- names(combined)
 
 # Houston 3x1
 list <- lapply(2:4, function(i) {
-  plotMap(names[i], 'user', combined, paste0('Houston Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]]), 'County', '', houston)$render()
+  plotMap(names[i], 'user', combined, paste0('Houston Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]], ''), 'County', '', houston)$render()
 })
-legend <- list(plotMap('Total', 'user', combined, paste0('Houston Colored by Total'), 'Reds', getBuckets(c(combined[, 2], combined[, 3], combined[, 4])), 'County', 'legendonly', houston))
+legend <- list(plotMap('Total', 'user', combined, paste0('Houston Colored by Total'), 'Reds', getBuckets(c(combined[, 2], combined[, 3], combined[, 4]), ''), 'County', 'legendonly', houston))
 final <- c(list, legend)
 plot <- grid.arrange(grobs = final, ncol = 1, layout_matrix = rbind(matrix(1:3, byrow = TRUE, nrow = 3), rep(4, 3)))
 ggsave('brca3x1_houston_ninetile.pdf', plot, width = 8.5, height = 11, dpi = 350)
 
 # Houston Total
 list <- lapply(5:5, function(i) {
-  plotMap(names[i], 'user', combined, paste0('Houston Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]]), 'County', 'legendandmap', houston)$render()
+  plotMap(names[i], 'user', combined, paste0('Houston Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]], ''), 'County', 'legendandmap', houston)$render()
 })
 final <- c(list)
 plot <- grid.arrange(grobs = final, ncol = 1)
@@ -58,14 +58,14 @@ ggsave('brcatotal_houston_ninetile.pdf', plot, width = 11, height = 8.5, dpi = 3
 list <- lapply(2:4, function(i) {
   plotMap(names[i], 'user', combined, paste0('LA Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]]), 'County', '', la)$render()
 })
-legend <- list(plotMap('Total', 'user', combined, paste0('LA Colored by Total'), 'Reds', getBuckets(c(combined[, 2], combined[, 3], combined[, 4])), 'County', 'legendonly', la))
+legend <- list(plotMap('Total', 'user', combined, paste0('LA Colored by Total'), 'Reds', getBuckets(c(combined[, 2], combined[, 3], combined[, 4]), ''), 'County', 'legendonly', la))
 final <- c(list, legend)
 plot <- grid.arrange(grobs = final, ncol = 1, layout_matrix = rbind(matrix(1:3, byrow = TRUE, nrow = 3), rep(4, 3)))
 ggsave('brca3x1_la_ninetile.pdf', plot, width = 8.5, height = 11, dpi = 350)
 
 # LA Total
 list <- lapply(5:5, function(i) {
-  plotMap(names[i], 'user', combined, paste0('LA Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]]), 'County', 'legendandmap', la)$render()
+  plotMap(names[i], 'user', combined, paste0('LA Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]], ''), 'County', 'legendandmap', la)$render()
 })
 final <- c(list)
 plot <- grid.arrange(grobs = final, ncol = 1)
@@ -74,16 +74,16 @@ ggsave('brcatotal_la_ninetile.pdf', plot, width = 11, height = 8.5, dpi = 350)
 # NYC 3x1
 names <- names(combined)
 list <- lapply(2:4, function(i) {
-  plotMap(names[i], 'user', combined, paste0('NYC Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]]), 'County', '', nyc)$render()
+  plotMap(names[i], 'user', combined, paste0('NYC Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]], ''), 'County', '', nyc)$render()
 })
-legend <- list(plotMap('Total', 'user', combined, paste0('NYC Colored by Total'), 'Reds', getBuckets(c(combined[, 2], combined[, 3], combined[, 4])), 'County', 'legendonly', nyc))
+legend <- list(plotMap('Total', 'user', combined, paste0('NYC Colored by Total'), 'Reds', getBuckets(c(combined[, 2], combined[, 3], combined[, 4]), ''), 'County', 'legendonly', nyc))
 final <- c(list, legend)
 plot <- grid.arrange(grobs = final, ncol = 1, layout_matrix = rbind(matrix(1:3, byrow = TRUE, nrow = 3), rep(4, 3)))
 ggsave('brca3x1_nyc_ninetile.pdf', plot, width = 8.5, height = 11, dpi = 350)
 
 # NYC Total
 list <- lapply(5:5, function(i) {
-  plotMap(names[i], 'user', combined, paste0('NYC Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]]), 'County', 'legendandmap', nyc)$render()
+  plotMap(names[i], 'user', combined, paste0('NYC Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]], ''), 'County', 'legendandmap', nyc)$render()
 })
 final <- c(list)
 plot <- grid.arrange(grobs = final, ncol = 1)
@@ -92,16 +92,16 @@ ggsave('brcatotal_nyc_ninetile.pdf', plot, width = 11, height = 8.5, dpi = 350)
 # Boston 3x1
 names <- names(combined)
 list <- lapply(2:4, function(i) {
-  plotMap(names[i], 'user', combined, paste0('Boston Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]]), 'County', '', boston)$render()
+  plotMap(names[i], 'user', combined, paste0('Boston Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]], ''), 'County', '', boston)$render()
 })
-legend <- list(plotMap('Total', 'user', combined, paste0('Boston Colored by Total'), 'Reds', getBuckets(c(combined[, 2], combined[, 3], combined[, 4])), 'County', 'legendonly', boston))
+legend <- list(plotMap('Total', 'user', combined, paste0('Boston Colored by Total'), 'Reds', getBuckets(c(combined[, 2], combined[, 3], combined[, 4]), ''), 'County', 'legendonly', boston))
 final <- c(list, legend)
 plot <- grid.arrange(grobs = final, ncol = 1, layout_matrix = rbind(matrix(1:3, byrow = TRUE, nrow = 3), rep(4, 3)))
 ggsave('brca3x1_boston_ninetile.pdf', plot, width = 8.5, height = 11, dpi = 350)
 
 # Boston Total
 list <- lapply(5:5, function(i) {
-  plotMap(names[i], 'user', combined, paste0('Boston Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]]), 'County', 'legendandmap', boston)$render()
+  plotMap(names[i], 'user', combined, paste0('Boston Colored by ', names[i]), 'Reds', getBuckets(combined[, names[i]], ''), 'County', 'legendandmap', boston)$render()
 })
 final <- c(list)
 plot <- grid.arrange(grobs = final, ncol = 1)
@@ -111,9 +111,9 @@ ggsave('brcatotal_boston_ninetile.pdf', plot, width = 11, height = 8.5, dpi = 35
 # don't remove 0s from combined
 region <- aggregateToRegion(aggregateUserToState(combined))
 list <- lapply(2:4, function(i) {
-  plotMap(names[i], 'user', region, paste0('USA Regions Colored by ', names[i]), 'Reds', getBuckets(region[, names[i]]), 'State', '', NULL)$render()
+  plotMap(names[i], 'user', region, paste0('USA Regions Colored by ', names[i]), 'Reds', getBuckets(region[, names[i]], ''), 'State', '', NULL)$render()
 })
-legend <- list(plotMap('Total', 'user', region, paste0('USA Regions Colored by Total'), 'Reds', getBuckets(c(region[, 2], region[, 3], region[, 4])), 'State', 'legendonly', NULL))
+legend <- list(plotMap('Total', 'user', region, paste0('USA Regions Colored by Total'), 'Reds', getBuckets(c(region[, 2], region[, 3], region[, 4]), ''), 'State', 'legendonly', NULL))
 final <- c(list, legend)
 plot <- grid.arrange(grobs = final, ncol = 1, layout_matrix = rbind(matrix(1:3, byrow = TRUE, nrow = 3), rep(4, 3)))
 ggsave('brca3x1_regions_ninetile.pdf', plot, width = 8.5, height = 11, dpi = 350)
@@ -122,7 +122,7 @@ ggsave('brca3x1_regions_ninetile.pdf', plot, width = 8.5, height = 11, dpi = 350
 # don't remove 0s from combined
 region <- aggregateToRegion(aggregateUserToState(combined))
 list <- lapply(5:5, function(i) {
-  plotMap(names[i], 'user', region, paste0('USA Regions Colored by ', names[i]), 'Reds', getBuckets(region[, names[i]]), 'State', 'legendandmap', NULL)$render()
+  plotMap(names[i], 'user', region, paste0('USA Regions Colored by ', names[i]), 'Reds', getBuckets(region[, names[i]], ''), 'State', 'legendandmap', NULL)$render()
 })
 final <- c(list)
 plot <- grid.arrange(grobs = final, ncol = 1)
@@ -179,7 +179,7 @@ data[, 2] <- as.numeric(data[, 2])
 data[, 1] <- as.character(data[, 1])
 # Hawaii wasn't in the data in 2012-2013
 names(data) <- c('State', 'Value') 
-list <- list(plotMap('Value', 'user', data, paste0('USA Regions Colored by Ratio Between 2013-2014 and 2012-2013'), 'Reds', getBuckets(data[, 'Value']), 'State', 'legendandmap', NULL)$render() + theme(plot.margin=grid::unit(c(15,15,15,15), "mm")))
+list <- list(plotMap('Value', 'user', data, paste0('USA Regions Colored by Ratio Between 2013-2014 and 2012-2013'), 'Reds', getBuckets(data[, 'Value'], ''), 'State', 'legendandmap', NULL)$render() + theme(plot.margin=grid::unit(c(15,15,15,15), "mm")))
 final <- c(list)
 plot <- grid.arrange(grobs = final, ncol = 1)
 ggsave('brcaratio_region.pdf', plot, width = 11, height = 8.5, dpi = 350)
