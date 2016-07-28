@@ -13,6 +13,8 @@ Below are plots of the USA colored by median income, black population, white pop
 Make sure to run devtools::install_github('rstudio/DT') (for the buttons in table download)
 Also to rebuild choroplethr with the custom function, do this in the directory (after modifying usa.R):
 [http://kbroman.org/pkg_primer/pages/build.html](http://kbroman.org/pkg_primer/pages/build.html)
+
+[http://bootstraptaste.com/demo/Butterfly/](http://bootstraptaste.com/demo/Butterfly/)
 library(devtools)
 
 build()
