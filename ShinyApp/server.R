@@ -42,6 +42,22 @@ shinyServer(function(input, output, session) {
     # Increment the top-level progress indicator
   })
   
+  observeEvent(input$button1, {
+    updateTabsetPanel(session, "Page", selected = "Maps")
+  })
+  
+  observeEvent(input$button2, {
+    updateTabsetPanel(session, "Page", selected = "Maps")
+  })
+  
+  observeEvent(input$button3, {
+    updateTabsetPanel(session, "Page", selected = "Table")
+  })
+  
+  observeEvent(input$button4, {
+    updateTabsetPanel(session, "Page", selected = "ICD9s")
+  })
+  
   getTotal <- reactive({
     return (as.numeric(input$total))
   })
