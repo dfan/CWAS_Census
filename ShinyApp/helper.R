@@ -243,7 +243,7 @@ plotMap <- function(string, type, data, title, color, buckets, detail, legend, z
     cbPalette <- c(colorRampPalette(c("red3", "seashell"))(numRed), colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
   }
   # scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
-  map$ggplot_scale <- scale_fill_manual(values = cbPalette)
+  map$ggplot_scale <- scale_fill_manual(values = cbPalette, guide = FALSE)
   if (legend == 'legendandmap' || legend == 'legendonly') {
     map$ggplot_scale <- scale_fill_manual(values = cbPalette)
   }
@@ -407,7 +407,7 @@ plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detai
     cbPalette <- c(colorRampPalette(c("red3", "seashell"))(numRed), colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
   }
   # scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
-  map$ggplot_scale <- scale_fill_manual(values = cbPalette)
+  map$ggplot_scale <- scale_fill_manual(values = cbPalette, guide = FALSE)
   if (legend == 'legendandmap' || legend == 'legendonly') {
     map$ggplot_scale <- scale_fill_manual(values=cbPalette)
   }
@@ -488,7 +488,7 @@ plotPercentDiffMap <- function(param1, param2, type, data, title, color, buckets
     cbPalette <- c(colorRampPalette(c("red3", "seashell"))(numRed), colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
   }
   # scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
-  map$ggplot_scale <- scale_fill_manual(values = cbPalette)
+  map$ggplot_scale <- scale_fill_manual(values = cbPalette, guide = FALSE)
   if (legend == 'legendandmap' || legend == 'legendonly') {
     map$ggplot_scale <- scale_fill_manual(values=cbPalette)
   }

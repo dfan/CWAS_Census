@@ -1,10 +1,10 @@
 library(shiny)
+library(shinydashboard)
 library(shinythemes)
 library(shinysky)
 # Define UI for miles per gallon application
 shinyUI(fluidPage(theme = shinytheme("united"),
   
-
   #'shiny-plot-output shiny-bound-output'
   #'# document.getElementById('allmaps').style.height = '100vh';
   #'
@@ -32,11 +32,19 @@ shinyUI(fluidPage(theme = shinytheme("united"),
     #gets rid of weird small shift when you click go and the scrollbar disappears
     tags$style(type="text/css", "body { overflow-y: scroll; }")
   ),
-  
-  actionButton("showpanel", "Show/hide top panel"),
-  headerPanel("CWAS Data Visualization"),
+  column(width = 2, actionButton("showpanel", "Show/hide top panel")),
+  column(width = 10, align = "right",
+    div(class = "footer",
+      includeHTML("html/Template/footer.html")
+  )),
+  headerPanel("CWAS Data Visualization", windowTitle = "CWAS Data Visualization App"),
   tabsetPanel(
-    tabPanel("Maps",
+    tabPanel(tagList(shiny::icon("home"), "Home"),
+      div(class = "home",
+         includeHTML("html/Template/home.html")
+      )
+    ),
+    tabPanel(tagList(shiny::icon("picture-o"), "Maps"),
       sidebarLayout(
         sidebarPanel(width = 12,
           fluidRow(
@@ -75,7 +83,7 @@ shinyUI(fluidPage(theme = shinytheme("united"),
         )
       )
     ),
-    tabPanel("Table",
+    tabPanel(tagList(shiny::icon("database"), "Table"),
       sidebarLayout(
         sidebarPanel(width = 12,
           fluidRow(
@@ -110,26 +118,54 @@ shinyUI(fluidPage(theme = shinytheme("united"),
         )
       )
     ),
-    tabPanel("ICD9s", 
-      radioButtons('icd9', NULL, choices = c('None selected', 'See ICD9 rates for user table')),
-      uiOutput("icd9List"),
-      actionButton("displayICD9", "Go!", style = "primary"),
-      fluidRow(
-        br(),
-        column(12, align = "center",
-              dataTableOutput('icd9table')
-        )
-      )
-    ),
-    tabPanel("Upload File",
-      fluidRow(column(width = 4, fileInput('file1', 'Choose CSV File', accept=c('text/csv', 'text/comma-separated-values,text/plain', '.csv'))),
-        column(width = 8, 
-          conditionalPanel("output.isUploaded",  
-            column(width = 12, selectInput('sep', 'Separator', c(Comma=',', Semicolon=';', Tab='\t'),','), 
-                   checkboxInput('header', 'Include Header', TRUE)
+    tabPanel(tagList(shiny::icon("database"), "ICD9s"), 
+      sidebarLayout(
+        sidebarPanel(width = 12,
+          fluidRow(
+            column(width = 4,    
+              radioButtons('icd9', NULL, choices = c('None selected', 'See ICD9 rates for user table')),
+              uiOutput("icd9List"),
+              actionButton("displayICD9", "Go!", style = "primary")
+            )
+          )
+        ),
+        mainPanel(width = 12,
+          fluidRow(
+            br(),
+            column(12, align = "center",
+                   dataTableOutput('icd9table')
             )
           )
         )
+      )
+    ),
+    tabPanel(tagList(shiny::icon("upload"), "Upload File"),
+      sidebarLayout(
+        sidebarPanel(width = 12,
+          fluidRow(column(width = 4, fileInput('file1', 'Choose CSV File', accept=c('text/csv', 'text/comma-separated-values,text/plain', '.csv'))),
+            column(width = 8, 
+              conditionalPanel("output.isUploaded",  
+                column(width = 12, selectInput('sep', 'Separator', c(Comma=',', Semicolon=';', Tab='\t'),','), 
+                       checkboxInput('header', 'Include Header', TRUE)
+                )
+              )
+            )
+          )
+        ),
+        mainPanel(width = 12,
+          tags$p("Switch back to this tab anytime to upload a different file. The old one will be overwritten.")
+        )
+      )
+    ),
+    tabPanel(tagList(shiny::icon("info"), "Help"),
+      tags$h2("Format for map data"),
+      tags$li(
+        tags$ul("First column must be five-digit zip codes, five-digit county codes (with leading zeros)or state names in lowercase.")
+      ),
+      tags$h2("Format for statistic table"),
+      tags$li(
+        tags$ul("First column must be five-digit zip codes, five-digit county codes (with leading zeros or state names in lowercase"),
+        tags$ul("Columns must be values between 0 and 1 for the binomia-exact, chi-squared and two-proportion tests.")
       )
     )
   )
