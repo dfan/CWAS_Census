@@ -35,7 +35,8 @@ shinyServer(function(input, output, session) {
     # read once to get column classes
     dataState <- read.csv('censusState.csv', stringsAsFactors=FALSE, check.names=FALSE)
     dataState <- read.csv('censusState.csv', stringsAsFactors=FALSE, check.names=FALSE, colClasses = c('character', sapply(names(dataState), function(x) class(dataState[,x]))[-1]))
-    #dataState <- aggregateCensusToState(dataCombined, updateProgress)
+    dataRegion <- read.csv('censusRegion.csv', stringsAsFactors=FALSE, check.names=FALSE)
+    dataRegion <- read.csv('censusRegion.csv', stringsAsFactors=FALSE, check.names=FALSE, colClasses = c('character', sapply(names(dataRegion), function(x) class(dataRegion[,x]))[-1]))
     
     # retain leading zeros for ZCTA5 codes
     options(shiny.maxRequestSize=150*1024^2)
@@ -107,21 +108,25 @@ shinyServer(function(input, output, session) {
         data <- dataCombined
       } else if (input$detailLevel == 'State') {
         data <- dataState
+      } else if (input$detailLevel == 'Region') {
+        data <- dataRegion
       }
     }
     if (input$whichMapData == 'Plot by user data') {
       raw <- readTable()
       if (input$detailLevel == 'State') {
         data <- aggregateUserToState(raw)
+      } else if (input$detailLevel == 'Region') {
+        data <- aggregateUserToRegion(aggregateUserToState(raw))
       } else {
         data <- raw
       }
     }
     list <- sapply(1:total, function(i) {
       if (input$percentdifference) {
-        # we don't want division by zero
-        data <- data[which(data[, input[[paste0('variable', i, 'a')]]] != 0), ]
-        (data[, input[[paste0('variable', i, 'b')]]] - data[, input[[paste0('variable', i, 'a')]]]) / data[, input[[paste0('variable', i, 'a')]]]
+        # we don't want division by zero. But save in temp so that original isn't overwritten if multiple plots are generated
+        temp <- data[which(data[, input[[paste0('variable', i, 'a')]]] != 0), ]
+        (temp[, input[[paste0('variable', i, 'b')]]] - temp[, input[[paste0('variable', i, 'a')]]]) / temp[, input[[paste0('variable', i, 'a')]]]
       } else if (!input$difference) {
         data[, input[[paste0('variable', i, 'a')]]]
       } else if (input$difference) {
@@ -158,6 +163,8 @@ shinyServer(function(input, output, session) {
         data[, 1] <- as.numeric(sapply(data[, 1], function(y) sub('^0+([1-9])', '\\1', y)))
       } else if (input$detailLevel == 'State') {
         data <- dataState
+      } else if (input$detailLevel == 'Region') {
+        data <- dataRegion
       }
     }
     if (input$whichMapData == 'Plot by user data') {
@@ -170,6 +177,8 @@ shinyServer(function(input, output, session) {
       } else if (input$detailLevel == 'State') {
         # leading 0s are removed in aggregate function
         data <- aggregateUserToState(raw)
+      } else if (input$detailLevel == 'Region') {
+        data <- aggregateUserToRegion(aggregateUserToState(raw))
       }
     }
     legend <- ''
@@ -182,16 +191,17 @@ shinyServer(function(input, output, session) {
     plotList <- lapply(1:total, function(i) {
       if (input$percentdifference) {
         progress$inc(1/total, detail = paste("map", i))
-        data <- data[which(data[, input[[paste0('variable', i, 'a')]]] != 0), ]
-        plotPercentDiffMap(input[[paste0('variable', i, 'a')]], input[[paste0('variable', i, 'b')]], type, data, paste("USA Colored by % Difference in", input[[paste0('variable', i, 'a')]], 'and', input[[paste0('variable', i, 'b')]]), colorList[i], getBuckets(bucketData(), 'Percent'), getDetail(), legend, NULL)$render()
+        # don't overwrite in case there are multiple plots
+        temp <- data[which(data[, input[[paste0('variable', i, 'a')]]] != 0), ]
+        plotPercentDiffMap(input[[paste0('variable', i, 'a')]], input[[paste0('variable', i, 'b')]], type, temp, paste("USA Colored by % Difference in", input[[paste0('variable', i, 'a')]], 'and', input[[paste0('variable', i, 'b')]]), colorList[i], getBuckets(bucketData(), 'Percent'), getDetail(), legend, input$percent, NULL)$render()
       } else if (input$difference) {
         # needs to be inside for some reason
         progress$inc(1/total, detail = paste("map", i))
-        plotDiffMap(input[[paste0('variable', i, 'a')]], input[[paste0('variable', i, 'b')]], type, data, paste("USA Colored by Difference in", input[[paste0('variable', i, 'a')]], 'and', input[[paste0('variable', i, 'b')]]), colorList[i], getBuckets(bucketData(), 'notpercent'), getDetail(), legend, NULL)$render()
+        plotDiffMap(input[[paste0('variable', i, 'a')]], input[[paste0('variable', i, 'b')]], type, data, paste("USA Colored by Difference in", input[[paste0('variable', i, 'a')]], 'and', input[[paste0('variable', i, 'b')]]), colorList[i], getBuckets(bucketData(), 'Difference'), getDetail(), legend, input$percent, NULL)$render()
       } else if (!input$difference) {
         # order matters; value line goes first
         progress$inc(1/total, detail = paste("map", i))
-        plotMap(input[[paste0('variable', i, 'a')]], type, data, paste("USA Colored by", input[[paste0('variable', i, 'a')]]), colorList[i], getBuckets(bucketData(), 'notpercent'), getDetail(), legend, NULL)$render()
+        plotMap(input[[paste0('variable', i, 'a')]], type, data, paste("USA Colored by", input[[paste0('variable', i, 'a')]]), colorList[i], getBuckets(bucketData(), 'notpercent'), getDetail(), legend, input$percent, NULL)$render()
       }
     })
     return(plotList)
@@ -207,6 +217,8 @@ shinyServer(function(input, output, session) {
         data[, 1] <- as.numeric(sapply(data[, 1], function(y) sub('^0+([1-9])', '\\1', y)))
       } else if (input$detailLevel == 'State') {
         data <- dataState
+      } else if (input$detailLevel == 'Region') {
+        data <- dataRegion
       }
     }
     if (input$whichMapData == 'Plot by user data') {
@@ -220,17 +232,19 @@ shinyServer(function(input, output, session) {
       } else if (input$detailLevel == 'State') {
         # leading 0s are removed in aggregate function
         data <- aggregateUserToState(raw)
+      } else if (input$detailLevel == 'Region') {
+        data <- aggregateUserToRegion(aggregateUserToState(raw))
       }
     }
     if (input$percentdifference) {
       if (length(which(data[, input[[paste0('variable', i, 'a')]]] == 0)) > 0) {
         data <- data[which(data[, input[[paste0('variable', i, 'a')]]] != 0), ]
       }
-      return(list(plotPercentDiffMap(input[['variable1a']], input[['variable1b']], type, data, paste("USA Colored by % Difference in", input[['variable1a']], 'and', input[['variable1b']]), legendColor(), getBuckets(bucketData(), 'Percent'), getDetail(), 'legendonly', NULL)))
+      return(list(plotPercentDiffMap(input[['variable1a']], input[['variable1b']], type, data, paste("USA Colored by % Difference in", input[['variable1a']], 'and', input[['variable1b']]), legendColor(), getBuckets(bucketData(), 'Percent'), getDetail(), 'legendonly', input$percent, NULL)))
     } else if (input$difference) {
-      return(list(plotDiffMap(input[['variable1a']], input[['variable1b']], type, data, paste("USA Colored by Difference in", input[['variable1a']], 'and', input[['variable1b']]), legendColor(), getBuckets(bucketData(), 'notpercent'), getDetail(), 'legendonly', NULL)))
+      return(list(plotDiffMap(input[['variable1a']], input[['variable1b']], type, data, paste("USA Colored by Difference in", input[['variable1a']], 'and', input[['variable1b']]), legendColor(), getBuckets(bucketData(), 'Difference'), getDetail(), 'legendonly', input$percent, NULL)))
     } else if (!input$difference) {
-      return(list(plotMap(input[['variable1a']], type, data, paste("USA Colored by", input[['variable1a']]), legendColor(), getBuckets(bucketData(), 'notpercent'), getDetail(), 'legendonly', NULL)))
+      return(list(plotMap(input[['variable1a']], type, data, paste("USA Colored by", input[['variable1a']]), legendColor(), getBuckets(bucketData(), 'notpercent'), getDetail(), 'legendonly', input$percent, NULL)))
     }
   })
   
@@ -241,14 +255,6 @@ shinyServer(function(input, output, session) {
     isolate(col <- getNumCols())
     isolate(plotlist <- plotObjects())
     do.call("grid.arrange", c(plotObjects(), nrow = ceiling(total / col), ncol = col))
-    #g1 <- ggplot(data=iris, aes(x=Sepal.Length, y=Sepal.Width)) + geom_point()
-    #g2 <- ggplot(data=iris, aes(x=Sepal.Length, y=Sepal.Width)) + geom_point()
-    #grid.arrange(g1,g2, ncol = col)
-    
-    #grid.arrange(plotObjects()[[1]], plotObjects()[[2]], ncol = 1, widths = 1)
-    #ggsave(filename = 'test.pdf', plot = do.call("grid.arrange", c(plotObjects(), nrow = ceiling(total / col), ncol = col)))
-    #plot_grid(plotlist = plotObjects(), ncol = col, nrow = ceiling(total / col), labels = 'auto')
-    #grid.draw(arrangeGrob(plotObjects(), ncol = col))
   })
   
   output$legend <- renderPlot({
@@ -276,8 +282,6 @@ shinyServer(function(input, output, session) {
       column(12, align = "center", 
              fluidRow(
                tagList(
-                 column(width = 2, align = 'left', style='padding:0px;', downloadButton('png', 'Download as png')),
-                 column(width = 2, align = 'left', style='padding:0px;', downloadButton('pdf', 'Download as pdf')),
                  # can't set width here and in UI or it resolves to 0
                  column(width = 12, align = 'center', plotOutput("allmaps")),
                  column(width = 12, align = 'center', plotOutput("legend", width = '100%', height = 75))

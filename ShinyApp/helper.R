@@ -39,6 +39,41 @@ aggregateCensusToState <- function(data, updateProgress = NULL) {
   return(df)
 }
 
+aggregateCensusToRegion <- function(df) {
+  new_england = c("connecticut", "maine", "massachusetts", "new hampshire", "rhode island", "vermont")
+  middle_atlantic = c("new jersey", "new york", "pennsylvania")
+  east_north_central = c("indiana", "illinois", "michigan", "ohio", "wisconsin")
+  west_north_central = c("iowa", "kansas", "minnesota", "missouri", "nebraska", "north dakota", "south dakota")
+  south_atlantic = c("delaware", "district of columbia", "florida", "georgia", "maryland", "north carolina", "south carolina", "virginia", "west virginia")
+  east_south_central = c("alabama", "kentucky", "mississippi", "tennessee")
+  west_south_central = c("arkansas", "louisiana", "oklahoma", "texas")
+  mountain = c("arizona", "colorado", "idaho", "new mexico", "montana", "utah", "nevada", "wyoming")
+  pacific = c("alaska", "california", "hawaii", "oregon", "washington")
+  regions <- list(new_england, middle_atlantic, east_north_central, west_north_central, south_atlantic, east_south_central, west_south_central, mountain, pacific)
+  df[, -1] <- sapply(2:dim(df)[2], function(i) {
+    col <- df[, i]
+    for (x in 1:length(regions)) {
+      list <- sapply(1:length(regions[[x]]), function(j) {
+        df[which(df[, 1] == regions[[x]][j]), i]
+      })
+      indexes <- sapply(1:length(regions[[x]]), function(j) {
+        which(df[, 1] == regions[[x]][j])
+      })
+      for (k in 1:length(regions[[x]])) {
+        if (substr(names(df)[i], 1, 3) == 'pop') {
+          col[which(df[, 1] == regions[[x]][k])] <- sum(list)
+        } else if (substr(names(df)[i], 1, 3) == 'med') {
+          col[which(df[, 1] == regions[[x]][k])] <- median(getMedianList(list, df[indexes, paste0('population', substr(names(df)[i], nchar(names(df)[i]) - 3, nchar(names(df)[i])))]))
+        } else {
+          col[which(df[, 1] == regions[[x]][k])] <- getWeighted(list, df[indexes, paste0('population', substr(names(df)[i], nchar(names(df)[i]) - 3, nchar(names(df)[i])))])
+        }
+      }
+    }
+    col
+  })
+  df
+}
+
 aggregateUsertoCounty <- function(data, zipTable) {
   countiesList <- sapply(data[, 1], function(x) {
     # five-digit FIPS code
@@ -101,7 +136,7 @@ aggregateUserToState <- function(data, updateProgress = NULL) {
 }
 
 # only handles absolute values right now
-aggregateToRegion <- function(df) {
+aggregateUserToRegion <- function(df) {
   new_england = c("connecticut", "maine", "massachusetts", "new hampshire", "rhode island", "vermont")
   middle_atlantic = c("new jersey", "new york", "pennsylvania")
   east_north_central = c("indiana", "illinois", "michigan", "ohio", "wisconsin")
@@ -126,6 +161,7 @@ aggregateToRegion <- function(df) {
   })
   df
 }
+
 
 aggregateRegionOnly <- function(df) {
   new_england = c("connecticut", "maine", "massachusetts", "new hampshire", "rhode island", "vermont")
@@ -169,13 +205,13 @@ getWeighted <- function(data, pop) {
 }
 
 # external file because function is non-reactive
-plotMap <- function(string, type, data, title, color, buckets, detail, legend, zoom) {
+plotMap <- function(string, type, data, title, color, buckets, detail, legend, percent, zoom) {
   df <- as.data.frame(cbind(data[, 1], data[, string]))
   names(df) <- c("region", "value")
   # remove leading zeros from FIP codes
   # choropleth requires numeric column type in dataframe
   df$value <- as.numeric(as.character(df$value))
-  legendLabels <- getLabels(buckets)
+  legendLabels <- getLabels(buckets, percent)
   # set levels to be sure and INSIDE not afterward or else the values will get changed
   df$value <- factor(as.character(sapply(df$value, function(y) {
     if (y <= buckets[1]) {
@@ -206,7 +242,7 @@ plotMap <- function(string, type, data, title, color, buckets, detail, legend, z
     if (detail == 'County') {
       map <- CountyChoropleth$new(df)
     }
-    if (detail == 'State') {
+    if (detail == 'State' || detail == 'Region') {
       df[, 1] <- as.character(df[, 1])
       map <- StateChoropleth$new(df)
     }
@@ -222,7 +258,7 @@ plotMap <- function(string, type, data, title, color, buckets, detail, legend, z
         map$set_zoom(zoom)
       }
     }
-    if (detail == 'State') {
+    if (detail == 'State' || detail == 'Region') {
       df[, 1] <- as.character(df[, 1])
       map <- StateChoropleth$new(df)
     }
@@ -243,9 +279,10 @@ plotMap <- function(string, type, data, title, color, buckets, detail, legend, z
     cbPalette <- c(colorRampPalette(c("red3", "seashell"))(numRed), colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
   }
   # scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
-  map$ggplot_scale <- scale_fill_manual(values = cbPalette, guide = FALSE)
+  # drop = FALSE to prevent unused buckets from being omitted. name = NULL to prevent legend title
+  map$ggplot_scale <- scale_fill_manual(name=NULL, values = cbPalette, drop = FALSE, labels = legendLabels, guide = FALSE)
   if (legend == 'legendandmap' || legend == 'legendonly') {
-    map$ggplot_scale <- scale_fill_manual(values = cbPalette)
+    map$ggplot_scale <- scale_fill_manual(name=NULL, values = cbPalette, drop = FALSE, labels = legendLabels)
   }
   renderMap(map, legend)
 }
@@ -272,7 +309,7 @@ getBuckets3 <- function(dataList, type) {
     # Zeros were removed in server.R
     modifiedList <- dataList
   }
-  tempBins <- quantile(modifiedList, c(0.75, sapply(1:8, function(x) 0.75 + x / 8 * 0.25)))
+  tempBins <- quantile(modifiedList, c(0.75, sapply(1:8, function(x) 0.75 + x / 8 * 0.25)), na.rm = TRUE)
   if (length(which(dataList %% 1 == 0)) == length(dataList)) {
     return(floor(tempBins))
   }
@@ -284,8 +321,11 @@ getBuckets <- function(dataList, type) {
   # deciles
   # get rid of 0 values (if years differed in counties listed)
   # Zeros were removed in server.R for percents; zeros don't matter for the rest
-  modifiedList <- dataList
-  tempBins <- quantile(modifiedList, sapply(1:10, function(x) x / 10.0))
+  modifiedList <- dataList[which(dataList != 0)]
+  if (type == 'Difference' || type == 'Percent') {
+    modifiedList <- dataList
+  }
+  tempBins <- quantile(modifiedList, sapply(1:10, function(x) x / 10.0), na.rm = TRUE)
   if (length(which(dataList %% 1 == 0)) == length(dataList)) {
     return(floor(tempBins))
   }
@@ -312,7 +352,7 @@ getBucketsVersion2 <- function(dataList) {
   return(as.numeric(format(round(tempBins, 4), nsmall = 2)))
 }
 
-getLabels <- function(buckets) {
+getLabels <- function(buckets, percent) {
   y <- rep(0,10)
   # integers
   if (length(which(buckets %% 1 == 0)) == length(buckets)) {
@@ -325,22 +365,29 @@ getLabels <- function(buckets) {
       }
     }
   } else {
-    y[1] <- paste0(format(buckets[1] * 100, big.mark=","), '% or lower')
-    for (i in 2:10) {
-      y[i] <- paste0(format(buckets[i - 1] * 100,  big.mark=","), '% to ', format(buckets[i] * 100, big.mark = ","), '%')
+    if (percent) {
+      y[1] <- paste0(format(buckets[1] * 100, big.mark=","), '% or lower')
+      for (i in 2:10) {
+        y[i] <- paste0(format(buckets[i - 1] * 100,  big.mark=","), '% to ', format(buckets[i] * 100, big.mark = ","), '%')
+      }
+    } else if (!percent) {
+      y[1] <- paste0(format(buckets[1] , big.mark=","), ' or lower')
+      for (i in 2:10) {
+        y[i] <- paste0(format(buckets[i - 1],  big.mark=","), ' to ', format(buckets[i], big.mark = ","))
+      } 
     }
   }
   #y <- factor(y, labels = y, ordered = TRUE)
   return(y)
 }
 
-plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detail, legend, zoom) {
+plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detail, legend, percent, zoom) {
   df <- as.data.frame(cbind(data[, 1], data[, param2] - data[, param1]))
   names(df) <- c("region", "value")
   # remove leading zeros from FIP codes
   # choropleth requires numeric column type in dataframe
   df$value <- as.numeric(as.character(df$value))
-  legendLabels <- getLabels(buckets)
+  legendLabels <- getLabels(buckets, percent)
   # set levels to be sure and INSIDE not afterward or else the values will get changed
   df$value <- factor(as.character(sapply(df$value, function(y) {
     if (y <= buckets[1]) {
@@ -371,7 +418,7 @@ plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detai
     if (detail == 'County') {
       map <- CountyChoropleth$new(df)
     }
-    if (detail == 'State') {
+    if (detail == 'State' || detail == 'Region') {
       df[, 1] <- as.character(df[, 1])
       map <- StateChoropleth$new(df)
     }
@@ -387,7 +434,7 @@ plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detai
         map$set_zoom(zoom)
       }
     }
-    if (detail == 'State') {
+    if (detail == 'State' || detail == 'Region') {
       df[, 1] <- as.character(df[, 1])
       map <- StateChoropleth$new(df)
     }
@@ -407,21 +454,20 @@ plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detai
     cbPalette <- c(colorRampPalette(c("red3", "seashell"))(numRed), colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
   }
   # scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
-  map$ggplot_scale <- scale_fill_manual(values = cbPalette, guide = FALSE)
+  map$ggplot_scale <- scale_fill_manual(values = cbPalette, drop = FALSE, labels = legendLabels, guide = FALSE)
   if (legend == 'legendandmap' || legend == 'legendonly') {
-    map$ggplot_scale <- scale_fill_manual(values=cbPalette)
+    map$ggplot_scale <- scale_fill_manual(values=cbPalette, drop = FALSE, labels = legendLabels)
   }
   renderMap(map, legend)
 }
 
-plotPercentDiffMap <- function(param1, param2, type, data, title, color, buckets, detail, legend, zoom) {
+plotPercentDiffMap <- function(param1, param2, type, data, title, color, buckets, detail, legend, percent, zoom) {
   df <- as.data.frame(cbind(data[,1], (data[, param2] - data[, param1]) / data[, param1]))
   names(df) <- c("region", "value")
   # remove leading zeros from FIP codes
   # choropleth requires numeric column type in dataframe
   df$value <- as.numeric(as.character(df$value))
-  legendLabels <- getLabels(buckets)
-  print(legendLabels)
+  legendLabels <- getLabels(buckets, percent)
   # set levels to be sure and INSIDE not afterward or else the values will get changed
   df$value <- factor(as.character(sapply(df$value, function(y) {
     if (y <= buckets[1]) {
@@ -452,7 +498,7 @@ plotPercentDiffMap <- function(param1, param2, type, data, title, color, buckets
     if (detail == 'County') {
       map <- CountyChoropleth$new(df)
     }
-    if (detail == 'State') {
+    if (detail == 'State' || detail == 'Region') {
       df[, 1] <- as.character(df[, 1])
       map <- StateChoropleth$new(df)
     }
@@ -468,7 +514,7 @@ plotPercentDiffMap <- function(param1, param2, type, data, title, color, buckets
         map$set_zoom(zoom)
       }
     }
-    if (detail == 'State') {
+    if (detail == 'State' || detail == 'Region') {
       df[, 1] <- as.character(df[, 1])
       map <- StateChoropleth$new(df)
     }
@@ -488,9 +534,9 @@ plotPercentDiffMap <- function(param1, param2, type, data, title, color, buckets
     cbPalette <- c(colorRampPalette(c("red3", "seashell"))(numRed), colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
   }
   # scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
-  map$ggplot_scale <- scale_fill_manual(values = cbPalette, guide = FALSE)
+  map$ggplot_scale <- scale_fill_manual(values = cbPalette, drop = FALSE, labels = legendLabels, guide = FALSE)
   if (legend == 'legendandmap' || legend == 'legendonly') {
-    map$ggplot_scale <- scale_fill_manual(values=cbPalette)
+    map$ggplot_scale <- scale_fill_manual(values=cbPalette, drop = FALSE, labels = legendLabels)
   }
   renderMap(map, legend)
 }

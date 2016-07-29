@@ -13,4 +13,6 @@ zipTable <- read.csv('../Data/zcta_county.csv', stringsAsFactors=FALSE, colClass
 
 dataState <- aggregateCensusToState(dataCombined)
 write.table(dataState, file = 'censusState.csv', row.names = FALSE, sep = ',')
+dataRegion <- aggregateCensusToRegion(dataState)
+write.table(dataRegion, file = 'censusRegion.csv', row.names = FALSE, sep = ',')
 

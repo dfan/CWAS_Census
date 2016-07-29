@@ -30,8 +30,8 @@ shinyUI(navbarPage("CWAS", id = "Page", theme = shinytheme("united"),
     ),
     tags$style("#allmaps{height: 100vh !important;}"),
     tags$style(".navbar {margin-right: 0;}
-                .navbar .navbar-nav {float: right;}
-                .navbar-wrapper, .navbar, .navbar-inner, .container {margin-left: 0 !important; margin-right: 0 !important;}"),
+                .navbar .navbar-nav {float: right;}"),
+    #            .navbar-wrapper, .navbar, .navbar-inner, .container {margin-left: 0 !important; margin-right: 0 !important;}"),
     tags$style("#thumbnail button
                {
                   width: 800px;
@@ -50,7 +50,9 @@ shinyUI(navbarPage("CWAS", id = "Page", theme = shinytheme("united"),
       )
     ),
     tabPanel("Maps", icon = shiny::icon("picture-o"),
-      actionButton("showpanel1", "Show/hide top panel", style = "success"),
+      column(width = 2, align = 'left', style='padding:0px;', actionButton("showpanel1", "Show/hide top panel", style = "success")),
+      column(width = 2, align = 'left', style='padding:0px;', downloadButton('png', 'Download as png')),
+      column(width = 2, align = 'left', style='padding:0px;', downloadButton('pdf', 'Download as pdf')),
       sidebarLayout(
         conditionalPanel("input.showpanel1 % 2 == 0",
           sidebarPanel(width = 12,
@@ -65,14 +67,15 @@ shinyUI(navbarPage("CWAS", id = "Page", theme = shinytheme("united"),
                   column(width = 12,
                     fluidRow(selectInput("total", "Total Plots", list("1" = "1", "2" = "2", "3" = "3", "4" = "4", "5" = "5", "6" = "6", "7" = "7", "8" = "8", "9" = "9"), width = "100%")),
                     fluidRow(selectInput("cols", "Columns", list("1" = "1", "2" = "2", "3" = "3"), width = "100%")),
-                    fluidRow(selectInput("detailLevel", "Level of Detail:", list("None" = "None", "Zip Code" = "Zip Code", "County" = "County", "State" = "State"))),
+                    fluidRow(selectInput("detailLevel", "Level of Detail:", list("None" = "None", "Zip Code" = "Zip Code", "County" = "County", "State" = "State", "Region" = "Region"))),
                     fluidRow(actionButton("action", "Go!", width = "100%", style = "primary"))
                   )
                 ),
                 column(width = 3,
                   uiOutput("mapselection1"),
                   checkboxInput('difference', 'Plot by Difference', FALSE),
-                  checkboxInput('percentdifference', 'Plot by % Difference', FALSE)
+                  checkboxInput('percentdifference', 'Plot by % Difference', FALSE),
+                  checkboxInput('percent', 'Plot data as percent', FALSE)
                 ),
                 column(width = 3,
                   conditionalPanel("input.difference || input.percentdifference", 
