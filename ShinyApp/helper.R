@@ -276,7 +276,7 @@ plotMap <- function(string, type, data, title, color, buckets, detail, legend, p
   }
   if (color == "Red-Green") {
     numRed <- length(which(buckets < 0))
-    cbPalette <- c(colorRampPalette(c("red3", "seashell"))(numRed), colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
+    cbPalette <- c(rev(colorRampPalette(c("#ffe5e5", "red3"))(numRed + 1))[-1], colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
   }
   # scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
   # drop = FALSE to prevent unused buckets from being omitted. name = NULL to prevent legend title
@@ -451,7 +451,7 @@ plotDiffMap <- function(param1, param2, type, data, title, color, buckets, detai
   }
   if (color == "Red-Green") {
     numRed <- length(which(buckets < 0))
-    cbPalette <- c(colorRampPalette(c("red3", "seashell"))(numRed), colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
+    cbPalette <- c(rev(colorRampPalette(c("#ffe5e5", "red3"))(numRed + 1))[-1], colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
   }
   # scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
   map$ggplot_scale <- scale_fill_manual(values = cbPalette, drop = FALSE, labels = legendLabels, guide = FALSE)
@@ -531,7 +531,7 @@ plotPercentDiffMap <- function(param1, param2, type, data, title, color, buckets
   }
   if (color == "Red-Green") {
     numRed <- length(which(buckets < 0))
-    cbPalette <- c(colorRampPalette(c("red3", "seashell"))(numRed), colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
+    cbPalette <- c(rev(colorRampPalette(c("#ffe5e5", "red3"))(numRed + 1))[-1], colorRampPalette(c("#e5f2e5", "palegreen3", "#004000"))(10 - numRed))
   }
   # scale_fill_brewer(name=NULL, labels = legendLabels, palette=color, drop=FALSE, guide = FALSE)
   map$ggplot_scale <- scale_fill_manual(values = cbPalette, drop = FALSE, labels = legendLabels, guide = FALSE)

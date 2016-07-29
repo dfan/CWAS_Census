@@ -19,7 +19,15 @@ combined[, -1] <- t(sapply(1:length(allCounties), function(i) {
 }))
 # we don't want Puerto Rico
 combined <- combined[-which(combined[,1] == '72031'),]
-names(combined) <- c('County', 'BRCA 5/14/2012 to 5/14/2013', 'BRCA 5/14/2013 to 5/14/2014', 'BRCA 5/14/2014 to 5/14/2015', 'Total')
+names(combined) <- c('County', '2013', '2014', '2015')
+write.table(combined[, -5], file = 'aetnaCombinedCounty.txt', row.names = FALSE, sep = '\t')
+stateLevel <- aggregateUserToState(combined)
+names(stateLevel) <- c('State', '2013', '2014', '2015')
+write.table(stateLevel[, -5], file = 'aetnaCombinedState.txt', row.names = FALSE, sep = '\t')
+regionLevel <- aggregateRegionOnly(stateLevel)
+names(regionLevel) <- c('Region', '2013', '2014', '2015')
+write.table(regionLevel[, -5], file = 'aetnaCombinedRegion.txt', row.names = FALSE, sep = '\t')
+
 setwd('/Users/dfan/Desktop/AETNA_Data')
 write.table(combined, file = 'aetnaCombined.txt', row.names = FALSE, sep = '\t')
 
@@ -139,6 +147,9 @@ combined[, -1] <- t(sapply(1:length(allCounties), function(i) {
     }
   })
 }))
+combined <- combined[-which(combined[,1] == '72031'),]
+names(combined) <- c('County', 'BRCA 5/14/2012 to 5/14/2013', 'BRCA 5/14/2013 to 5/14/2014', 'BRCA 5/14/2014 to 5/14/2015', 'Total')
+
 stateData <- aggregateUserToState(combined)
 data <- as.data.frame(cbind(stateData[,1], lapply(1:length(stateData[,1]), function(i) {
   stateData[i,3] / stateData[i,2]
@@ -193,3 +204,17 @@ list <- list(plotMap('Value', 'user', data, paste0('USA Regions Colored by Ratio
 final <- c(list)
 plot <- grid.arrange(grobs = final, ncol = 1)
 ggsave('brcaratio_region.pdf', plot, width = 11, height = 8.5, dpi = 350)
+
+# Plot of States by difference between 2013 and 2014 as a % without states with total count < 100
+stateData <- aggregateUserToState(combined)
+stateData <- stateData[which(stateData[,2] != 0), ]
+stateData <- stateData[which(stateData$Total >= 100), ]
+data <- as.data.frame(cbind(stateData[,1], as.list((stateData[,3] - stateData[,2]) / stateData[,2])))
+data[, 2] <- as.numeric(data[, 2])
+data[, 1] <- as.character(data[, 1])
+names(data) <- c('State', 'Value')
+list <- list(plotMap('Value', 'user', data, paste0('USA Colored by % Difference in ', names[2], ' and ', names[3]), 'Red-Green', getBuckets(data[, 'Value'], 'Percent'), 'State', 'legendandmap', TRUE, NULL)$render())
+final <- c(list)
+plot <- grid.arrange(grobs = final, ncol = 1)
+ggsave('brcadifferenceratio_state_filtered_decile.pdf', plot, width = 11, height = 8.5, dpi = 350)
+

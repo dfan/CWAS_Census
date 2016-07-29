@@ -344,10 +344,7 @@ shinyServer(function(input, output, session) {
         list <- plotObjects()
         leg <- plotLegend()
         final <- c(list, leg)
-        # arrangeGrob won't work
-        #do.call('grid.arrange', c(final, layout_matrix = rbind(matrix(1:getTotal(), byrow = TRUE, nrow = ceiling(getTotal() / getNumCols())), rep(getTotal() + 1, getNumCols()))))
         grid.arrange(grobs = final, ncol = getNumCols(), layout_matrix = rbind(matrix(1:getTotal(), byrow = TRUE, nrow = ceiling(getTotal() / getNumCols())), rep(getTotal() + 1, getNumCols())))
-        #grid.arrange(grid1, plotLegend(), nrow = 2)
         dev.off()
       }
     }
