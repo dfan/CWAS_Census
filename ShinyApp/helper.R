@@ -74,6 +74,42 @@ aggregateCensusToRegion <- function(df) {
   df
 }
 
+aggregateCensusRegionOnly <- function(df) {
+  new_england = c("connecticut", "maine", "massachusetts", "new hampshire", "rhode island", "vermont")
+  middle_atlantic = c("new jersey", "new york", "pennsylvania")
+  east_north_central = c("indiana", "illinois", "michigan", "ohio", "wisconsin")
+  west_north_central = c("iowa", "kansas", "minnesota", "missouri", "nebraska", "north dakota", "south dakota")
+  south_atlantic = c("delaware", "district of columbia", "florida", "georgia", "maryland", "north carolina", "south carolina", "virginia", "west virginia")
+  east_south_central = c("alabama", "kentucky", "mississippi", "tennessee")
+  west_south_central = c("arkansas", "louisiana", "oklahoma", "texas")
+  mountain = c("arizona", "colorado", "idaho", "new mexico", "montana", "utah", "nevada", "wyoming")
+  pacific = c("alaska", "california", "hawaii", "oregon", "washington")
+  regions <- list(new_england, middle_atlantic, east_north_central, west_north_central, south_atlantic, east_south_central, west_south_central, mountain, pacific)
+  names <- c('new_england', 'middle_atlantic', 'east_north_central', 'west_north_central', 'south_atlantic', 'east_south_central', 'west_south_central', 'mountain', 'pacific')
+  data <- as.data.frame(cbind(names, matrix(rep(0, length(names) * (dim(df)[2] - 1)), nrow = length(names))), stringsAsFactors = FALSE)
+  names(data) <- c('region', names(df)[-1])
+  data[, -1] <- sapply(2:dim(df)[2], function(i) {
+    col <- as.numeric(data[, i])
+    for (x in 1:length(regions)) {
+      list <- sapply(1:length(regions[[x]]), function(j) {
+        df[which(df[, 1] == regions[[x]][j]), i]
+      })
+      indexes <- sapply(1:length(regions[[x]]), function(j) {
+        which(df[, 1] == regions[[x]][j])
+      })
+      if (substr(names(df)[i], 1, 3) == 'pop') {
+        col[x] <- sum(list)
+      } else if (substr(names(df)[i], 1, 3) == 'med') {
+        col[x] <- median(getMedianList(list, df[indexes, paste0('population', substr(names(df)[i], nchar(names(df)[i]) - 3, nchar(names(df)[i])))]))
+      } else {
+        col[x] <- getWeighted(list, df[indexes, paste0('population', substr(names(df)[i], nchar(names(df)[i]) - 3, nchar(names(df)[i])))])
+      }
+    }
+    col
+  })
+  data
+}
+
 aggregateUsertoCounty <- function(data, zipTable) {
   countiesList <- sapply(data[, 1], function(x) {
     # five-digit FIPS code

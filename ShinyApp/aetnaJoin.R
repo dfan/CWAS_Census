@@ -1,6 +1,7 @@
 library(grid)
 library(gridExtra)
 library(ggplot2)
+library(RMySQL)
 # check.names=FALSE prevents column names from being changed from slash to period
 aetna1 <- read.csv('/Users/dfan/Desktop/AETNA_Data/jolie_05_14_2012_to_05_14_2013.txt', colClasses = c('County' = 'character'), sep = '\t', check.names=FALSE)
 aetna2 <- read.csv('/Users/dfan/Desktop/AETNA_Data/jolie_05_14_2013_to_05_14_2014.txt', colClasses = c('County' = 'character'), sep = '\t', check.names=FALSE)
@@ -19,13 +20,13 @@ combined[, -1] <- t(sapply(1:length(allCounties), function(i) {
 }))
 # we don't want Puerto Rico
 combined <- combined[-which(combined[,1] == '72031'),]
-names(combined) <- c('County', '2013', '2014', '2015')
+names(combined) <- c('County', '2013', '2014', '2015', 'Total')
 write.table(combined[, -5], file = 'aetnaCombinedCounty.txt', row.names = FALSE, sep = '\t')
 stateLevel <- aggregateUserToState(combined)
-names(stateLevel) <- c('State', '2013', '2014', '2015')
+names(stateLevel) <- c('State', '2013', '2014', '2015', 'Total')
 write.table(stateLevel[, -5], file = 'aetnaCombinedState.txt', row.names = FALSE, sep = '\t')
 regionLevel <- aggregateRegionOnly(stateLevel)
-names(regionLevel) <- c('Region', '2013', '2014', '2015')
+names(regionLevel) <- c('Region', '2013', '2014', '2015', 'Total')
 write.table(regionLevel[, -5], file = 'aetnaCombinedRegion.txt', row.names = FALSE, sep = '\t')
 
 setwd('/Users/dfan/Desktop/AETNA_Data')
@@ -217,4 +218,33 @@ list <- list(plotMap('Value', 'user', data, paste0('USA Colored by % Difference 
 final <- c(list)
 plot <- grid.arrange(grobs = final, ncol = 1)
 ggsave('brcadifferenceratio_state_filtered_decile.pdf', plot, width = 11, height = 8.5, dpi = 350)
+
+### Ratio scatter plots
+source('helper.R')
+con <- dbConnect(MySQL(), user = "root", password = "root", dbname = "census2000", unix.sock="/Applications/MAMP/tmp/mysql/mysql.sock")
+data2000 <- dbReadTable(conn = con, name = "acs")
+dbDisconnect(con)
+con <- dbConnect(MySQL(), user = "root", password = "root", dbname = "census2010", unix.sock="/Applications/MAMP/tmp/mysql/mysql.sock")
+data2010 <- dbReadTable(conn = con, name = "acs")
+censusCounty <- cbind(data2000, data2010[, -1], data2010[, -1])
+censusState <- read.csv('/Users/dfan/Dropbox/Research\ Lab\ Projects/Undergraduate/Harvard-MIT\ 2016/Code/CWAS_Census/ShinyApp/censusState.csv', stringsAsFactors=FALSE, check.names=FALSE)
+censusState <- read.csv('/Users/dfan/Dropbox/Research\ Lab\ Projects/Undergraduate/Harvard-MIT\ 2016/Code/CWAS_Census/ShinyApp/censusState.csv', stringsAsFactors=FALSE, check.names=FALSE, colClasses = c('character', sapply(names(censusState), function(x) class(censusState[,x]))[-1]))
+censusRegion <- read.csv('/Users/dfan/Dropbox/Research\ Lab\ Projects/Undergraduate/Harvard-MIT\ 2016/Code/CWAS_Census/ShinyApp/censusRegionOnly.csv', stringsAsFactors=FALSE, check.names=FALSE)
+censusRegion <-  read.csv('/Users/dfan/Dropbox/Research\ Lab\ Projects/Undergraduate/Harvard-MIT\ 2016/Code/CWAS_Census/ShinyApp/censusRegionOnly.csv', stringsAsFactors=FALSE, check.names=FALSE, colClasses = c('character', sapply(names(censusState), function(x) class(censusState[,x]))[-1]))
+colnames(censusCounty) <- c('county', read.csv('/Users/dfan/Dropbox/Research\ Lab\ Projects/Undergraduate/Harvard-MIT\ 2016/Code/CWAS_Census//Data/censusColNames.csv', stringsAsFactors=FALSE)[, 1])
+dbDisconnect(con)
+names <- names(censusCounty)
+
+countyIndexes <- sapply(combined[,1], function(x) which(censusCounty[,1] == x))
+stateIndexes <- sapply(stateLevel[,1], function(x) which(censusState[,1] == x))
+regionIndexes <- sapply(regionLevel[,1], function(x) which(censusRegion[,1] == x))
+setwd('/Users/dfan/Desktop/AETNA_Data')
+for (i in 2:length(names)) {
+  png(paste0('jolie_', names[i], '.png'), width = 1600, height = 800, units = "px", res = 150)
+  par(mfrow=c(1,3))
+  plot1 <- plot(censusCounty[countyIndexes, i], log(combined[,3] / combined[,2]), main=paste0("Log Jolie Effect by ", names[i], ' in County'), xlab=names[i], ylab="Log 2014/2013", ylim=c(-2.0, 2.0), pch=1)
+  plot2 <- plot(censusState[stateIndexes, i], log(stateLevel[,3] / stateLevel[,2]), main=paste0("Log Jolie Effect by ", names[i], ' in State'), xlab=names[i], ylab="Log 2014/2013", ylim=c(-2.0, 2.0), pch=1)
+  plot3 <- plot(censusRegion[regionIndexes, i], log(regionLevel[,3] / regionLevel[,2]), main=paste0("Log Jolie Effect by ", names[i], ' in Region'), xlab=names[i], ylab="Log 2014/2013", ylim=c(-2.0, 2.0), pch=1)
+  dev.off()
+}
 

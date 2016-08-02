@@ -1,4 +1,4 @@
-import os
+    import os
 import sys
 
 script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
@@ -27,8 +27,8 @@ for line in data:
             params[i] = 0
 
     # states end with 000. We don't want states; only counties.
-    # Keep counties even if they have no data.
-    if params[0] == 'STCOU' or (params[0][2:6] != '000' and params[0] != 'STCOU'):
+    # Keep counties even if they have no data. But get rid of 30113, 51560 and 51780 since they became incorporated as towns
+    if params[0] == 'STCOU' or (params[0][2:6] != '000' and params[0] != '30113' and params[0] != '51560' and params[0] != '51780' and params[0] != 'STCOU'):
         for i in range(0, len(params) - 1):
             new.write(str(params[i]) + ',')
         # no comma on last item
