@@ -24,13 +24,13 @@ install()
 Notes: In the 2012 election data Alaska is completely missing and Kalawao county in Hawaii even though there's state level data. County level data just wasn't made available after the 2012 election. Data was pulled from [https://www.theguardian.com/news/datablog/2012/nov/07/us-2012-election-county-results-download](here). State level population estimates for 2012 were pulled from [http://www.governing.com/gov-data/state-census-population-migration-births-deaths-estimates.html](here) to generate regional level voting percentages for 2012.
 
 
-![](Sample Images/Screenshot1.png)
+![](https://github.com/dfan/CWAS_Census/blob/master/Sample%20Images/Screenshot1.png)
 
 
-![](Sample Images/Screenshot2.png)
+![](https://github.com/dfan/CWAS_Census/blob/master/Sample%20Images/Screenshot2.png)
 
 
-![](Sample Images/Screenshot3.png)
+![](https://github.com/dfan/CWAS_Census/blob/master/Sample%20Images/Screenshot3.png)
 
 
-![](Sample Images/Screenshot4.png)
+![](https://github.com/dfan/CWAS_Census/blob/master/Sample%20Images/Screenshot4.png)
